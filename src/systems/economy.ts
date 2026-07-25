@@ -6,15 +6,22 @@ export class Economy {
     [Side.Khoi]: ECONOMY.startingGold,
     [Side.Nguyen]: ECONOMY.startingGold,
   };
-  /** Thu nhập cộng thêm từ nâng cấp (mỗi phe). */
+  /** Thu nhập cộng thêm từ nâng cấp trong trận (mỗi phe). */
   private bonusIncome: Record<Side, number> = {
     [Side.Khoi]: 0,
     [Side.Nguyen]: 0,
   };
+  /** Hệ số nhân thu nhập (nâng cấp vĩnh viễn / mức khó). */
+  private readonly incomeMult: Record<Side, number>;
+
+  constructor(incomeMult?: Record<Side, number>) {
+    this.incomeMult = incomeMult ?? { [Side.Khoi]: 1, [Side.Nguyen]: 1 };
+  }
 
   update(dtSeconds: number): void {
-    this.gold[Side.Khoi] += (ECONOMY.incomePerSecond + this.bonusIncome[Side.Khoi]) * dtSeconds;
-    this.gold[Side.Nguyen] += (ECONOMY.incomePerSecond + this.bonusIncome[Side.Nguyen]) * dtSeconds;
+    for (const side of [Side.Khoi, Side.Nguyen]) {
+      this.gold[side] += (ECONOMY.incomePerSecond * this.incomeMult[side] + this.bonusIncome[side]) * dtSeconds;
+    }
   }
 
   addIncome(side: Side, amount: number): void {

@@ -10,16 +10,18 @@ export class RoofAttacker {
   readonly side: Side;
   private readonly scene: Phaser.Scene | null;
   private readonly frontX: number;
-  private readonly statMult: number;
+  private readonly dmgMult: number;
+  private readonly cdMult: number;
   private lastFireAt = 0;
 
   private head?: Phaser.GameObjects.Image;
   private headBaseY = 0;
 
-  constructor(scene: Phaser.Scene | null, side: Side, statMult = 1) {
+  constructor(scene: Phaser.Scene | null, side: Side, dmgMult = 1, cdMult = 1) {
     this.scene = scene;
     this.side = side;
-    this.statMult = statMult;
+    this.dmgMult = dmgMult;
+    this.cdMult = cdMult;
     this.frontX = baseXOf(side) + directionOf(side) * (BASE.width / 2);
 
     if (scene) this.buildVisual(scene, side);
@@ -39,11 +41,11 @@ export class RoofAttacker {
     const cfg = ROOF_ATTACK[this.side];
     const target = this.nearestEnemyInRange(units, cfg.range);
     if (!target) return;
-    if (now - this.lastFireAt < cfg.cooldownMs) return;
+    if (now - this.lastFireAt < cfg.cooldownMs * this.cdMult) return;
 
     this.lastFireAt = now;
     sound.play(this.side === Side.Khoi ? 'egg' : 'water'); // ném trứng / bắn nước
-    const damage = cfg.damage * upgrades.roofDamageMultiplier(this.side) * this.statMult;
+    const damage = cfg.damage * upgrades.roofDamageMultiplier(this.side) * this.dmgMult;
     projectiles.push(
       new Projectile(this.scene, this.side, cfg.kind, this.frontX, target.x, damage, cfg.aoeRadius, cfg.projectileSpeed, cfg.color),
     );

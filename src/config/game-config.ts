@@ -295,3 +295,105 @@ export function statMultipliersFor(
     ? { [Side.Khoi]: 1, [Side.Nguyen]: aiMult }
     : { [Side.Khoi]: aiMult, [Side.Nguyen]: 1 };
 }
+
+// ============================================================================
+// Hệ số chỉ số 1 phe (dùng chung cho AI theo mức khó×màn, và người chơi theo
+// nâng cấp vĩnh viễn). Hệ số nhân: >1 = tăng, <1 = giảm (cho cooldown/giá).
+// ============================================================================
+export interface SideMods {
+  unitHp: Record<UnitType, number>;
+  unitDmg: Record<UnitType, number>;
+  unitCost: Record<UnitType, number>;
+  unitSpawnCd: Record<UnitType, number>;
+  baseHp: number;
+  roofDmg: number;
+  roofCd: number;
+  income: number;
+}
+
+const ALL_UNIT_TYPES: UnitType[] = [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Father];
+
+function unitRecord(value: number): Record<UnitType, number> {
+  return {
+    [UnitType.BoBinh]: value,
+    [UnitType.CungThu]: value,
+    [UnitType.GiapBinh]: value,
+    [UnitType.Father]: value,
+  };
+}
+
+/** SideMods đồng đều (AI): máu&công×mult cho lính/thành/nóc; giá/hồi chiêu/thu nhập giữ nguyên. */
+export function uniformSideMods(mult: number): SideMods {
+  return {
+    unitHp: unitRecord(mult),
+    unitDmg: unitRecord(mult),
+    unitCost: unitRecord(1),
+    unitSpawnCd: unitRecord(1),
+    baseHp: mult,
+    roofDmg: mult,
+    roofCd: 1,
+    income: 1,
+  };
+}
+
+// ---- Nâng cấp vĩnh viễn của người chơi (mua bằng "xu" ở Menu) ----
+export type MetaTarget = 'unitHp' | 'unitDmg' | 'unitCost' | 'unitSpawnCd' | 'baseHp' | 'roofDmg' | 'roofCd' | 'income';
+
+export interface MetaUpgradeDef {
+  id: string; // khoá lưu localStorage
+  group: string; // nhãn tab (đối tượng)
+  label: string; // tên nâng cấp
+  target: MetaTarget;
+  unitType?: UnitType; // nếu target là chỉ số lính
+  perLevel: number; // +0.06 (tăng) hoặc -0.03 (giảm)
+  maxLevel: number;
+  baseCost: number; // xu cho cấp 1
+  costGrowth: number; // nhân chi phí mỗi cấp
+}
+
+const INC = 0.06; // +6%/cấp (máu, sát thương, thu nhập)
+const RED = -0.03; // -3%/cấp (giá, hồi chiêu)
+export const META_REDUCTION_FLOOR = 0.4; // giảm tối đa 60%
+const MAX_LV = 15;
+
+function unitUpgrades(type: UnitType, group: string): MetaUpgradeDef[] {
+  return [
+    { id: `${type}.hp`, group, label: 'Máu', target: 'unitHp', unitType: type, perLevel: INC, maxLevel: MAX_LV, baseCost: 8, costGrowth: 1.4 },
+    { id: `${type}.dmg`, group, label: 'Sát thương', target: 'unitDmg', unitType: type, perLevel: INC, maxLevel: MAX_LV, baseCost: 8, costGrowth: 1.4 },
+    { id: `${type}.spawncd`, group, label: 'Giảm hồi chiêu đẻ', target: 'unitSpawnCd', unitType: type, perLevel: RED, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.45 },
+    { id: `${type}.cost`, group, label: 'Giảm giá mua', target: 'unitCost', unitType: type, perLevel: RED, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.45 },
+  ];
+}
+
+/** Toàn bộ nâng cấp, nhóm theo tab. */
+export const META_UPGRADES: MetaUpgradeDef[] = [
+  { id: 'thanh.hp', group: 'Thành', label: 'Máu thành', target: 'baseHp', perLevel: INC, maxLevel: MAX_LV, baseCost: 12, costGrowth: 1.45 },
+  { id: 'thanh.roofdmg', group: 'Thành', label: 'Sát thương nóc', target: 'roofDmg', perLevel: INC, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.4 },
+  { id: 'thanh.roofcd', group: 'Thành', label: 'Giảm hồi chiêu nóc', target: 'roofCd', perLevel: RED, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.45 },
+  ...unitUpgrades(UnitType.BoBinh, 'Bộ binh'),
+  ...unitUpgrades(UnitType.CungThu, 'Cung thủ'),
+  ...unitUpgrades(UnitType.GiapBinh, 'Giáp binh'),
+  ...unitUpgrades(UnitType.Father, 'Father'),
+  { id: 'chung.income', group: 'Chung', label: 'Tăng thu nhập', target: 'income', perLevel: INC, maxLevel: MAX_LV, baseCost: 15, costGrowth: 1.5 },
+];
+
+/** Thứ tự tab hiển thị trong shop. */
+export const META_GROUPS = ['Thành', 'Bộ binh', 'Cung thủ', 'Giáp binh', 'Father', 'Chung'];
+
+/** Chi phí xu cho cấp tiếp theo của 1 nâng cấp. */
+export function metaUpgradeCost(def: MetaUpgradeDef, currentLevel: number): number {
+  return Math.round(def.baseCost * Math.pow(def.costGrowth, currentLevel));
+}
+
+/** Xu thưởng sau trận. */
+export function coinsEarned(playerWon: boolean, stage: number): number {
+  return playerWon ? 15 + stage * 5 : 5 + stage;
+}
+
+/** Biến 1 cấp nâng cấp thành hệ số nhân (giảm thì kẹp sàn). */
+export function metaFactor(def: MetaUpgradeDef, level: number): number {
+  const f = 1 + level * def.perLevel;
+  return def.perLevel < 0 ? Math.max(META_REDUCTION_FLOOR, f) : f;
+}
+
+export { ALL_UNIT_TYPES };

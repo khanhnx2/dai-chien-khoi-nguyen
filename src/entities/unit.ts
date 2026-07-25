@@ -29,13 +29,13 @@ export class Unit {
   private readonly icon: Phaser.GameObjects.Text | Phaser.GameObjects.Image;
   private readonly hpBar: Phaser.GameObjects.Rectangle;
 
-  constructor(scene: Phaser.Scene, side: Side, type: UnitType, startX: number, statMult = 1) {
+  constructor(scene: Phaser.Scene, side: Side, type: UnitType, startX: number, hpMult = 1, dmgMult = 1) {
     this.scene = scene;
     this.side = side;
     this.type = type;
     this.stats = UNITS[type];
-    this.maxHp = this.stats.hp * statMult;
-    this.attackDamage = this.stats.damage * statMult;
+    this.maxHp = this.stats.hp * hpMult;
+    this.attackDamage = this.stats.damage * dmgMult;
     this.x = startX;
     this.hp = this.maxHp;
 

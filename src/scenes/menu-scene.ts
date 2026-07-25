@@ -10,6 +10,7 @@ import {
   TOTAL_STAGES,
 } from '../config/game-config';
 import { getLastSelection, getUnlockedStage } from '../systems/progress';
+import { getCoins } from '../systems/meta-upgrades';
 import { COLORS, FONT, drawGradientBg } from '../ui/theme';
 import { avatarFrame, clayButton, type AvatarFrame, type ClayButton } from '../ui/ui-kit';
 import { sound } from '../audio/sound-manager';
@@ -50,6 +51,21 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setStroke('#1a1030', 8)
       .setShadow(0, 5, '#000000', 8, true, true);
+
+    // Xu (góc phải trên) + nút Nâng cấp (góc trái trên).
+    this.add
+      .text(GAME_WIDTH - 16, 14, `Xu: ${getCoins()} 🪙`, { fontFamily: FONT, fontSize: '20px', color: COLORS.textGold, fontStyle: 'bold' })
+      .setOrigin(1, 0);
+    clayButton(this, {
+      x: 92,
+      y: 30,
+      width: 150,
+      height: 44,
+      label: '⚙ Nâng cấp',
+      fill: COLORS.orange,
+      fontSize: 17,
+      onClick: () => this.scene.start('upgrade'),
+    });
 
     this.buildDifficultyRow();
     this.buildSideRow();

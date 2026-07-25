@@ -2,14 +2,19 @@ import Phaser from 'phaser';
 import {
   GAME_WIDTH,
   LANE_Y,
+  DIFFICULTIES,
   Difficulty,
+  SideMods,
   Side,
   SIDE_INFO,
   UnitType,
   UpgradeType,
+  coinsEarned,
   enemyOf,
-  statMultipliersFor,
+  stageStatMultiplier,
+  uniformSideMods,
 } from '../config/game-config';
+import { addCoins, computePlayerMods } from '../systems/meta-upgrades';
 import { Base } from '../entities/base';
 import type { Unit } from '../entities/unit';
 import type { Projectile } from '../entities/projectile';
@@ -71,26 +76,32 @@ export class BattleScene extends Phaser.Scene {
     sound.startMusic(); // nhạc nền (idempotent — loop xuyên suốt)
     this.add.rectangle(GAME_WIDTH / 2, LANE_Y + 40, GAME_WIDTH, 120, 0x3a2e1f);
 
-    // Hệ số máu&công: người chơi giữ base (×1), Máy nhân theo mức khó × màn.
-    const statMods = statMultipliersFor(this.playerSide, this.difficulty, this.stage);
+    // Người chơi: chỉ số theo nâng cấp vĩnh viễn. Máy: nhân đều theo mức khó × màn.
+    const aiMult = DIFFICULTIES[this.difficulty].statMultiplier * stageStatMultiplier(this.stage);
+    const playerMods = computePlayerMods();
+    const aiMods = uniformSideMods(aiMult);
+    const mods: Record<Side, SideMods> =
+      this.playerSide === Side.Khoi
+        ? { [Side.Khoi]: playerMods, [Side.Nguyen]: aiMods }
+        : { [Side.Khoi]: aiMods, [Side.Nguyen]: playerMods };
 
     // Nhãn màn hiện tại.
     this.add.text(GAME_WIDTH / 2, 14, `Màn ${this.stage}`, { fontSize: '18px', color: '#fde047' }).setOrigin(0.5, 0);
 
     this.bases = {
-      [Side.Khoi]: new Base(this, Side.Khoi, statMods[Side.Khoi]),
-      [Side.Nguyen]: new Base(this, Side.Nguyen, statMods[Side.Nguyen]),
+      [Side.Khoi]: new Base(this, Side.Khoi, mods[Side.Khoi].baseHp),
+      [Side.Nguyen]: new Base(this, Side.Nguyen, mods[Side.Nguyen].baseHp),
     };
     this.roofs = {
-      [Side.Khoi]: new RoofAttacker(this, Side.Khoi, statMods[Side.Khoi]),
-      [Side.Nguyen]: new RoofAttacker(this, Side.Nguyen, statMods[Side.Nguyen]),
+      [Side.Khoi]: new RoofAttacker(this, Side.Khoi, mods[Side.Khoi].roofDmg, mods[Side.Khoi].roofCd),
+      [Side.Nguyen]: new RoofAttacker(this, Side.Nguyen, mods[Side.Nguyen].roofDmg, mods[Side.Nguyen].roofCd),
     };
-    this.economy = new Economy();
-    this.spawn = new SpawnManager(this, statMods);
+    this.economy = new Economy({ [Side.Khoi]: mods[Side.Khoi].income, [Side.Nguyen]: mods[Side.Nguyen].income });
+    this.spawn = new SpawnManager(this, mods);
     this.upgrades = new Upgrades();
-    this.special = new SpecialAbility(statMods);
+    this.special = new SpecialAbility({ [Side.Khoi]: mods[Side.Khoi].roofDmg, [Side.Nguyen]: mods[Side.Nguyen].roofDmg });
     this.ai = new BasicAi(this.aiSide, this.difficulty);
-    this.hud = new BattleHud(this, this.playerSide, {
+    this.hud = new BattleHud(this, this.playerSide, mods, {
       onSpawn: (type) => this.onPlayerSpawn(type),
       onSpecial: () => this.onPlayerSpecial(),
     });
@@ -152,6 +163,8 @@ export class BattleScene extends Phaser.Scene {
 
     // Thắng → mở màn kế của ĐÚNG chiến dịch (phe + mức khó) này.
     if (playerWon) unlockNextStage(this.playerSide, this.difficulty, this.stage);
+    // Thưởng xu để nâng cấp vĩnh viễn.
+    addCoins(coinsEarned(playerWon, this.stage));
 
     const winnerSide = playerWon ? this.playerSide : this.aiSide;
     this.scene.start('result', {

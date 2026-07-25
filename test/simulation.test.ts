@@ -27,8 +27,17 @@ import { Upgrades } from '../src/systems/upgrades';
 import { SpecialAbility } from '../src/systems/special-ability';
 import { RoofAttacker } from '../src/entities/roof-attacker';
 import { Projectile } from '../src/entities/projectile';
-import { LANE_Y, stageStatMultiplier } from '../src/config/game-config';
+import {
+  LANE_Y,
+  META_UPGRADES,
+  SideMods,
+  coinsEarned,
+  metaFactor,
+  stageStatMultiplier,
+  uniformSideMods,
+} from '../src/config/game-config';
 import { getUnlockedStage, unlockNextStage } from '../src/systems/progress';
+import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel } from '../src/systems/meta-upgrades';
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
 
 // --- Fake Phaser scene: game object stub chainable, đủ field/method code dùng tới. ---
@@ -286,12 +295,16 @@ function simulateMatch(
   minutes: number,
   buff: Record<Side, number> = { [Side.Khoi]: 1, [Side.Nguyen]: 1 },
 ): Side | null {
+  const mods: Record<Side, SideMods> = {
+    [Side.Khoi]: uniformSideMods(buff[Side.Khoi]),
+    [Side.Nguyen]: uniformSideMods(buff[Side.Nguyen]),
+  };
   const bases: Record<Side, Base> = {
     [Side.Khoi]: new Base(scene, Side.Khoi, buff[Side.Khoi]),
     [Side.Nguyen]: new Base(scene, Side.Nguyen, buff[Side.Nguyen]),
   };
   const economy = new Economy();
-  const spawn = new SpawnManager(scene, buff);
+  const spawn = new SpawnManager(scene, mods);
   const upgrades = new Upgrades();
   const special = new SpecialAbility();
   const units: Unit[] = [];
@@ -352,9 +365,9 @@ check('mức khó: Máy +20% (Thường) / +50% (Khó) máu & công, người ch
   assert.strictEqual(mods[Side.Khoi], 1);
   assert.strictEqual(mods[Side.Nguyen], 1.5);
 
-  // Lính Máy (×1.2) mạnh hơn base về máu & công.
-  const base = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 0, 1);
-  const buffed = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 0, 1.2);
+  // Lính Máy (×1.2 máu & công) mạnh hơn base.
+  const base = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 0, 1, 1);
+  const buffed = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 0, 1.2, 1.2);
   assert.ok(Math.abs(buffed.maxHp - base.maxHp * 1.2) < 1e-6);
   assert.ok(Math.abs(buffed.attackDamage - base.attackDamage * 1.2) < 1e-6);
 
@@ -447,6 +460,40 @@ check('AI: không bao giờ dùng kỹ năng đặc biệt', () => {
     if (!ctx.special.isReady(Side.Nguyen, ctx.now)) everUsed = true;
   }
   assert.strictEqual(everUsed, false, 'AI không được kích hoạt kỹ năng đặc biệt');
+});
+
+// 21. Nâng cấp vĩnh viễn: xu thưởng, mua trừ xu + tăng cấp + áp đúng chỉ số.
+check('meta: xu thưởng + mua nâng cấp + áp vào SideMods người chơi', () => {
+  // Xu thưởng: thắng nhiều hơn thua, tăng theo màn.
+  assert.ok(coinsEarned(true, 10) > coinsEarned(false, 10));
+  assert.ok(coinsEarned(true, 20) > coinsEarned(true, 1));
+
+  // metaFactor: tăng thì >1, giảm thì kẹp sàn 0.4.
+  const incDef = META_UPGRADES.find((d) => d.id === 'bo-binh.hp')!;
+  const redDef = META_UPGRADES.find((d) => d.id === 'bo-binh.cost')!;
+  assert.ok(metaFactor(incDef, 5) > 1);
+  assert.ok(metaFactor(redDef, 100) >= 0.4); // kẹp sàn, không âm
+
+  // Mua: đủ xu → trừ xu, +1 cấp; áp vào computePlayerMods.
+  addCoins(100000);
+  const before = getLevel('bo-binh.hp');
+  const coinsBefore = getCoins();
+  assert.ok(buyUpgrade(incDef), 'mua thành công khi đủ xu');
+  assert.strictEqual(getLevel('bo-binh.hp'), before + 1);
+  assert.ok(getCoins() < coinsBefore, 'xu bị trừ');
+  const mods: SideMods = computePlayerMods();
+  assert.ok(mods.unitHp[UnitType.BoBinh] > 1, 'máu bộ binh người chơi được buff');
+});
+
+// 22. uniformSideMods (Máy): máu&công×mult, giá/hồi chiêu/thu nhập giữ 1.
+check('meta: uniformSideMods cho Máy đúng', () => {
+  const m = uniformSideMods(1.5);
+  assert.strictEqual(m.unitHp[UnitType.BoBinh], 1.5);
+  assert.strictEqual(m.unitDmg[UnitType.GiapBinh], 1.5);
+  assert.strictEqual(m.baseHp, 1.5);
+  assert.strictEqual(m.roofDmg, 1.5);
+  assert.strictEqual(m.unitCost[UnitType.CungThu], 1);
+  assert.strictEqual(m.income, 1);
 });
 
 console.log(`\n${passed} test cases passed.`);

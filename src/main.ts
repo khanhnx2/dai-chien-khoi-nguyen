@@ -5,6 +5,7 @@ import { PreloadScene } from './scenes/preload-scene';
 import { MenuScene } from './scenes/menu-scene';
 import { BattleScene } from './scenes/battle-scene';
 import { ResultScene } from './scenes/result-scene';
+import { UpgradeScene } from './scenes/upgrade-scene';
 import { setupPwa } from './pwa/pwa-setup';
 
 const game = new Phaser.Game({
@@ -17,7 +18,7 @@ const game = new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, PreloadScene, MenuScene, BattleScene, ResultScene],
+  scene: [BootScene, PreloadScene, MenuScene, BattleScene, ResultScene, UpgradeScene],
 });
 
 // PWA: nút Cài đặt / Cập nhật + khoá xoay ngang.

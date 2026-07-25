@@ -12,10 +12,10 @@ export class Base {
 
   private readonly hpBar: Phaser.GameObjects.Rectangle;
 
-  constructor(scene: Phaser.Scene, side: Side, statMult = 1) {
+  constructor(scene: Phaser.Scene, side: Side, hpMult = 1) {
     this.side = side;
     this.x = baseXOf(side);
-    this.maxHp = BASE.maxHp * statMult;
+    this.maxHp = BASE.maxHp * hpMult;
     this.hp = this.maxHp;
 
     const info = SIDE_INFO[side];

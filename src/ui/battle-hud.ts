@@ -5,13 +5,14 @@ import {
   PLAYER_SPAWN_ORDER,
   SIDE_INFO,
   SPECIAL,
+  SideMods,
   Side,
   UNITS,
   UnitType,
   enemyOf,
 } from '../config/game-config';
 import type { Economy } from '../systems/economy';
-import type { SpawnManager } from '../systems/spawn';
+import { SpawnManager, unitCost } from '../systems/spawn';
 import type { SpecialAbility } from '../systems/special-ability';
 import { sound } from '../audio/sound-manager';
 
@@ -20,18 +21,20 @@ interface HudCallbacks {
   onSpecial: () => void;
 }
 
-/** HUD người chơi: vàng + 3 nút đẻ lính + nút kỹ năng đặc biệt (mờ khi chưa dùng được). */
+/** HUD người chơi: vàng + nút đẻ lính (giá đã áp nâng cấp) + kỹ năng + tắt âm. */
 export class BattleHud {
   private readonly playerSide: Side;
   private readonly aiSide: Side;
+  private readonly mods: Record<Side, SideMods>;
   private readonly goldText: Phaser.GameObjects.Text;
   private readonly aiGoldText: Phaser.GameObjects.Text;
   private readonly buttons = new Map<UnitType, Phaser.GameObjects.Text>();
   private readonly specialBtn: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene, playerSide: Side, cb: HudCallbacks) {
+  constructor(scene: Phaser.Scene, playerSide: Side, mods: Record<Side, SideMods>, cb: HudCallbacks) {
     this.playerSide = playerSide;
     this.aiSide = enemyOf(playerSide);
+    this.mods = mods;
     this.goldText = scene.add.text(16, 16, '', { fontSize: '20px', color: '#fde047' });
     // Vàng của Máy (đối thủ) — màu xám nhạt để phân biệt với vàng người chơi.
     this.aiGoldText = scene.add.text(16, 44, '', { fontSize: '16px', color: '#94a3b8' });
@@ -39,7 +42,7 @@ export class BattleHud {
     PLAYER_SPAWN_ORDER.forEach((type, i) => {
       const stats = UNITS[type];
       const btn = scene.add
-        .text(14 + i * 132, GAME_HEIGHT - 46, `${stats.label}\n${stats.cost}💰`, {
+        .text(14 + i * 132, GAME_HEIGHT - 46, `${stats.label}\n${unitCost(mods, playerSide, type)}💰`, {
           fontSize: '14px',
           color: '#ffffff',
           align: 'center',
@@ -83,11 +86,12 @@ export class BattleHud {
     this.aiGoldText.setText(`Máy (${SIDE_INFO[this.aiSide].label}) — Vàng: ${aiGold}💰`);
 
     for (const [type, btn] of this.buttons) {
+      const cost = unitCost(this.mods, this.playerSide, type);
       const cdLeft = spawn.cooldownLeft(this.playerSide, type, now);
-      const ready = cdLeft <= 0 && economy.canAfford(this.playerSide, UNITS[type].cost);
+      const ready = cdLeft <= 0 && economy.canAfford(this.playerSide, cost);
       btn.setAlpha(ready ? 1 : 0.45);
       const suffix = cdLeft > 0 ? `\n${(cdLeft / 1000).toFixed(1)}s` : '';
-      btn.setText(`${UNITS[type].label}\n${UNITS[type].cost}💰${suffix}`);
+      btn.setText(`${UNITS[type].label}\n${cost}💰${suffix}`);
     }
 
     const spCd = special.cooldownLeft(this.playerSide, now);
