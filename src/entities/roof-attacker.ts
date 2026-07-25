@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import { BASE, FACE_KEY, LANE_Y, ROOF_ATTACK, SIDE_INFO, Side, baseXOf, directionOf } from '../config/game-config';
 import { Projectile } from './projectile';
+import { sound } from '../audio/sound-manager';
 import type { Unit } from './unit';
 import type { Upgrades } from '../systems/upgrades';
 
@@ -41,6 +42,7 @@ export class RoofAttacker {
     if (now - this.lastFireAt < cfg.cooldownMs) return;
 
     this.lastFireAt = now;
+    sound.play(this.side === Side.Khoi ? 'egg' : 'water'); // ném trứng / bắn nước
     const damage = cfg.damage * upgrades.roofDamageMultiplier(this.side) * this.statMult;
     projectiles.push(
       new Projectile(this.scene, this.side, cfg.kind, this.frontX, target.x, damage, cfg.aoeRadius, cfg.projectileSpeed, cfg.color),

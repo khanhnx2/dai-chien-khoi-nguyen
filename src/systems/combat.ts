@@ -1,9 +1,10 @@
 import type Phaser from 'phaser';
-import { LANE_Y, Side, damageMultiplier, directionOf, enemyOf } from '../config/game-config';
+import { LANE_Y, Side, UnitType, damageMultiplier, directionOf, enemyOf } from '../config/game-config';
 import type { Base } from '../entities/base';
 import type { Unit } from '../entities/unit';
 import { Projectile } from '../entities/projectile';
 import type { Economy } from './economy';
+import { sound } from '../audio/sound-manager';
 
 const FATHER_BOLT_SPEED = 520;
 const FATHER_BOLT_COLOR = 0xa855f7;
@@ -71,11 +72,14 @@ export function updateBattle(
             unit.stats.range * FATHER_BOLT_TRAVEL_FACTOR,
           ),
         );
+        sound.play('magic'); // bắn phép
       } else if (!attackUnit && !attackBase) {
         unit.moveBy(directionOf(unit.side) * unit.stats.speed * dtSeconds);
       }
       continue;
     }
+
+    const attackSfx = () => sound.play(unit.type === UnitType.CungThu ? 'arrow' : 'slash');
 
     if (attackUnit && nearest) {
       if (ready) {
@@ -83,12 +87,14 @@ export function updateBattle(
         nearest.target.takeDamage(dmg);
         unit.lastAttackAt = now;
         unit.attackFx(nearest.target.x);
+        attackSfx(); // chém / bắn tên
       }
     } else if (attackBase) {
       if (ready) {
         enemyBase.takeDamage(unit.attackDamage);
         unit.lastAttackAt = now;
         unit.attackFx(enemyBase.frontX);
+        attackSfx();
       }
     } else {
       // Ngoài tầm: tiến về phía thành địch.

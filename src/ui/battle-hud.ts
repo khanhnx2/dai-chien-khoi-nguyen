@@ -13,6 +13,7 @@ import {
 import type { Economy } from '../systems/economy';
 import type { SpawnManager } from '../systems/spawn';
 import type { SpecialAbility } from '../systems/special-ability';
+import { sound } from '../audio/sound-manager';
 
 interface HudCallbacks {
   onSpawn: (type: UnitType) => void;
@@ -60,6 +61,19 @@ export class BattleHud {
       })
       .setInteractive({ useHandCursor: true });
     this.specialBtn.on('pointerdown', () => cb.onSpecial());
+
+    // Nút bật/tắt âm thanh (góc trên phải, dưới panel nâng cấp).
+    const muteBtn = scene.add
+      .text(GAME_WIDTH - 12, 132, '', { fontSize: '13px', color: '#ffffff', backgroundColor: '#1e293b', padding: { x: 8, y: 5 } })
+      .setOrigin(1, 0)
+      .setInteractive({ useHandCursor: true });
+    const refreshMute = () => muteBtn.setText(sound.isMuted() ? '🔇 Âm: Tắt' : '🔊 Âm: Bật');
+    refreshMute();
+    muteBtn.on('pointerdown', () => {
+      sound.setMuted(!sound.isMuted());
+      if (!sound.isMuted()) sound.startMusic();
+      refreshMute();
+    });
   }
 
   update(now: number, economy: Economy, spawn: SpawnManager, special: SpecialAbility): void {

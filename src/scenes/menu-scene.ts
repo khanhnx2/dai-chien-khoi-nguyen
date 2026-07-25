@@ -12,6 +12,7 @@ import {
 import { getLastSelection, getUnlockedStage } from '../systems/progress';
 import { COLORS, FONT, drawGradientBg } from '../ui/theme';
 import { avatarFrame, clayButton, type AvatarFrame, type ClayButton } from '../ui/ui-kit';
+import { sound } from '../audio/sound-manager';
 
 /** Menu: chọn mức khó + phe + màn (chiến dịch 50 màn riêng cho mỗi phe×mức) → Bắt đầu. */
 export class MenuScene extends Phaser.Scene {
@@ -66,6 +67,9 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.refresh();
+
+    // Nhạc nền bắt đầu ngay khi người chơi chạm lần đầu (chính sách audio của trình duyệt).
+    this.input.once('pointerdown', () => sound.startMusic());
   }
 
   private buildDifficultyRow(): void {

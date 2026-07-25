@@ -23,7 +23,7 @@ import { SpecialAbility } from '../systems/special-ability';
 import { BasicAi } from '../ai/basic-ai';
 import { BattleHud } from '../ui/battle-hud';
 import { UpgradePanel } from '../ui/upgrade-panel';
-import { SoundManager } from '../audio/sound-manager';
+import { sound } from '../audio/sound-manager';
 import { saveLastSelection, unlockNextStage } from '../systems/progress';
 
 interface BattleData {
@@ -50,7 +50,6 @@ export class BattleScene extends Phaser.Scene {
   private ai!: BasicAi;
   private hud!: BattleHud;
   private upgradePanel!: UpgradePanel;
-  private sfx = new SoundManager();
   private gameOver = false;
 
   constructor() {
@@ -69,6 +68,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   create(): void {
+    sound.startMusic(); // nhạc nền (idempotent — loop xuyên suốt)
     this.add.rectangle(GAME_WIDTH / 2, LANE_Y + 40, GAME_WIDTH, 120, 0x3a2e1f);
 
     // Hệ số máu&công: người chơi giữ base (×1), Máy nhân theo mức khó × màn.
@@ -100,13 +100,13 @@ export class BattleScene extends Phaser.Scene {
   private onPlayerSpawn(type: UnitType): void {
     if (this.gameOver) return;
     const result = this.spawn.trySpawn(this.playerSide, type, this.economy, this.units, this.time.now);
-    if ('unit' in result) this.sfx.play('spawn');
+    if ('unit' in result) sound.play('spawn');
   }
 
   private onPlayerSpecial(): void {
     if (this.gameOver) return;
     if (this.special.trigger(this.playerSide, this.time.now, this, this.units, this.projectiles)) {
-      this.sfx.play('special');
+      sound.play('special');
     }
   }
 
@@ -144,7 +144,7 @@ export class BattleScene extends Phaser.Scene {
 
   private endGame(playerWon: boolean): void {
     this.gameOver = true;
-    this.sfx.play(playerWon ? 'win' : 'lose');
+    sound.play(playerWon ? 'win' : 'lose');
     for (const u of this.units) u.destroy();
     for (const p of this.projectiles) p.kill();
     this.units = [];

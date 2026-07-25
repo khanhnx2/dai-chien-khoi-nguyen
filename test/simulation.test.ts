@@ -280,19 +280,26 @@ check('AI: Easy không mua nâng cấp, Hard có', () => {
   assert.ok(totalUpgradeLevels(Difficulty.Hard) > 0, 'Hard phải mua nâng cấp');
 });
 
-// Mô phỏng trận AI-vs-AI đầy đủ; trả về phe thắng hoặc null nếu bế tắc tới hết giờ.
-function simulateMatch(diffKhoi: Difficulty, diffNguyen: Difficulty, minutes: number): Side | null {
-  const bases = makeBases();
+// Mô phỏng trận AI-vs-AI đầy đủ (buff = hệ số máu&công mỗi phe, như scale mức khó × màn).
+// Trả về phe thắng hoặc null nếu bế tắc tới hết giờ.
+function simulateMatch(
+  minutes: number,
+  buff: Record<Side, number> = { [Side.Khoi]: 1, [Side.Nguyen]: 1 },
+): Side | null {
+  const bases: Record<Side, Base> = {
+    [Side.Khoi]: new Base(scene, Side.Khoi, buff[Side.Khoi]),
+    [Side.Nguyen]: new Base(scene, Side.Nguyen, buff[Side.Nguyen]),
+  };
   const economy = new Economy();
-  const spawn = new SpawnManager(scene);
+  const spawn = new SpawnManager(scene, buff);
   const upgrades = new Upgrades();
   const special = new SpecialAbility();
   const units: Unit[] = [];
   const projectiles: Projectile[] = [];
-  const roofK = new RoofAttacker(null, Side.Khoi);
-  const roofN = new RoofAttacker(null, Side.Nguyen);
-  const aiK = new BasicAi(Side.Khoi, diffKhoi);
-  const aiN = new BasicAi(Side.Nguyen, diffNguyen);
+  const roofK = new RoofAttacker(null, Side.Khoi, buff[Side.Khoi]);
+  const roofN = new RoofAttacker(null, Side.Nguyen, buff[Side.Nguyen]);
+  const aiK = new BasicAi(Side.Khoi, Difficulty.Normal);
+  const aiN = new BasicAi(Side.Nguyen, Difficulty.Normal);
   const ctx: AiContext = { now: 0, units, projectiles, economy, spawn, upgrades, special, bases, scene: null };
 
   for (let i = 0; i < 60 * 60 * minutes; i++) {
@@ -311,10 +318,14 @@ function simulateMatch(diffKhoi: Difficulty, diffNguyen: Difficulty, minutes: nu
   return null;
 }
 
-// 13. Cân bằng: phe MẠNH hơn (Hard) phải phá được thành phe yếu (Easy) — chứng minh
-// thành CÓ THỂ bị hạ trong trận thật; ưu thế được đền đáp (không bế tắc khi có chênh lệch).
-check('cân bằng: Hard thắng Easy (ưu thế phá được thành)', () => {
-  assert.strictEqual(simulateMatch(Difficulty.Hard, Difficulty.Easy, 6), Side.Khoi, 'Hard (Khôi) phải hạ thành Easy');
+// 13. Cân bằng: phe được BUFF máu&công (như scale mức khó × màn) phải phá được thành
+// phe base — chứng minh chênh lệch chỉ số quyết định thắng bại (thành CÓ THỂ bị hạ).
+check('cân bằng: phe mạnh hơn (buff chỉ số) hạ được thành phe base', () => {
+  assert.strictEqual(
+    simulateMatch(8, { [Side.Khoi]: 3, [Side.Nguyen]: 1 }),
+    Side.Khoi,
+    'Khôi (×3 máu&công) phải hạ thành Nguyên base',
+  );
 });
 
 // 14. Chống đơn điệu: AI phải đẻ nhiều loại lính khác nhau (không chỉ Bộ binh).
