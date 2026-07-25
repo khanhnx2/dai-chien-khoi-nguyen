@@ -118,15 +118,17 @@ export class MenuScene extends Phaser.Scene {
       const x = GAME_WIDTH * positions[side];
       const y = GAME_HEIGHT * 0.51;
       const af = avatarFrame(this, x, y, FACE_KEY[side], 84, SIDE_INFO[side].color);
-      af.container
-        .setSize(104, 104)
-        .setInteractive(new Phaser.Geom.Rectangle(-52, -52, 104, 104), Phaser.Geom.Rectangle.Contains)
-        .on('pointerup', () => {
-          this.side = side;
-          this.stage = getUnlockedStage(side, this.difficulty); // nhảy tới màn cuối của campaign này
-          this.refresh();
-        });
-      if (af.container.input) af.container.input.cursor = 'pointer';
+      af.container.setSize(112, 112);
+      af.container.setInteractive({
+        hitArea: new Phaser.Geom.Rectangle(-56, -56, 112, 112),
+        hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+        useHandCursor: true,
+      });
+      af.container.on('pointerup', () => {
+        this.side = side;
+        this.stage = getUnlockedStage(side, this.difficulty); // nhảy tới màn cuối của campaign này
+        this.refresh();
+      });
       this.avatars.set(side, af);
       this.add
         .text(x, y + 62, SIDE_INFO[side].label, {

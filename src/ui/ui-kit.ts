@@ -36,27 +36,38 @@ export function clayButton(scene: Phaser.Scene, o: ClayButtonOpts): ClayButton {
 
   let fill = o.fill;
   let enabled = true;
+  let hovered = false;
 
   const draw = (pressed: boolean) => {
     const dy = pressed ? 5 : 0;
+    // Hover = sáng màu (KHÔNG đổi kích thước/bounds → tránh nhảy mép, dễ bấm).
+    const bodyFill = hovered && enabled ? lighten(fill, 0.15) : fill;
     lip.clear();
     lip.fillStyle(darken(fill, 0.5), 1);
     lip.fillRoundedRect(-w / 2, -h / 2 + 6, w, h, r);
     body.clear();
-    body.fillStyle(fill, 1);
-    body.lineStyle(3, lighten(fill, 0.3), 1);
+    body.fillStyle(bodyFill, 1);
+    body.lineStyle(3, lighten(fill, 0.35), 1);
     body.fillRoundedRect(-w / 2, -h / 2 + dy, w, h, r);
     body.strokeRoundedRect(-w / 2, -h / 2 + dy, w, h, r);
     label.y = dy;
   };
   draw(false);
 
-  container.setSize(w, h + 6);
-  container.setInteractive(new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h + 6), Phaser.Geom.Rectangle.Contains);
-  if (container.input) container.input.cursor = 'pointer';
-  container.on('pointerover', () => enabled && scene.tweens.add({ targets: container, scale: 1.04, duration: 120 }));
+  // Hit area nới rộng thêm 10px mỗi bên cho dễ bấm; useHandCursor cho con trỏ pointer.
+  const pad = 10;
+  container.setSize(w + pad * 2, h + 6 + pad * 2);
+  container.setInteractive({
+    hitArea: new Phaser.Geom.Rectangle(-w / 2 - pad, -h / 2 - pad, w + pad * 2, h + 6 + pad * 2),
+    hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+    useHandCursor: true,
+  });
+  container.on('pointerover', () => {
+    hovered = true;
+    draw(false);
+  });
   container.on('pointerout', () => {
-    scene.tweens.add({ targets: container, scale: 1, duration: 120 });
+    hovered = false;
     draw(false);
   });
   container.on('pointerdown', () => enabled && draw(true));
