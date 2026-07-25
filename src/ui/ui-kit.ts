@@ -54,24 +54,23 @@ export function clayButton(scene: Phaser.Scene, o: ClayButtonOpts): ClayButton {
   };
   draw(false);
 
-  // Hit area nới rộng thêm 10px mỗi bên cho dễ bấm; useHandCursor cho con trỏ pointer.
-  const pad = 10;
-  container.setSize(w + pad * 2, h + 6 + pad * 2);
-  container.setInteractive({
-    hitArea: new Phaser.Geom.Rectangle(-w / 2 - pad, -h / 2 - pad, w + pad * 2, h + 6 + pad * 2),
-    hitAreaCallback: Phaser.Geom.Rectangle.Contains,
-    useHandCursor: true,
-  });
-  container.on('pointerover', () => {
+  // Vùng bấm = 1 Rectangle interactive TRONG SUỐT (đặt trên cùng). Cách này hit-test
+  // bằng hình học của chính nó — bền hơn hẳn custom hitArea trên container.
+  const pad = 12;
+  const hit = scene.add
+    .rectangle(0, 0, w + pad * 2, h + 6 + pad * 2, 0xffffff, 0)
+    .setInteractive({ useHandCursor: true });
+  container.add(hit);
+  hit.on('pointerover', () => {
     hovered = true;
     draw(false);
   });
-  container.on('pointerout', () => {
+  hit.on('pointerout', () => {
     hovered = false;
     draw(false);
   });
-  container.on('pointerdown', () => enabled && draw(true));
-  container.on('pointerup', () => {
+  hit.on('pointerdown', () => enabled && draw(true));
+  hit.on('pointerup', () => {
     if (!enabled) return;
     draw(false);
     o.onClick?.();
@@ -104,6 +103,7 @@ export function avatarFrame(
   textureKey: string,
   size: number,
   ringColor: number,
+  onClick?: () => void,
 ): AvatarFrame {
   const ring = scene.add.graphics();
   const img = scene.add.image(0, 0, textureKey).setDisplaySize(size, size);
@@ -118,12 +118,20 @@ export function avatarFrame(
   };
   draw(false);
 
+  // Vùng bấm interactive trong suốt (nếu có onClick).
+  if (onClick) {
+    const hit = scene.add
+      .rectangle(0, 0, size + 24, size + 24, 0xffffff, 0)
+      .setInteractive({ useHandCursor: true });
+    container.add(hit);
+    hit.on('pointerup', () => onClick());
+  }
+
   return {
     container,
     setSelected: (on) => {
       draw(on);
       container.setAlpha(on ? 1 : 0.55);
-      scene.tweens.add({ targets: container, scale: on ? 1.06 : 1, duration: 150 });
     },
   };
 }

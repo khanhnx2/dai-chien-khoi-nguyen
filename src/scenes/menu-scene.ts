@@ -117,14 +117,7 @@ export class MenuScene extends Phaser.Scene {
     for (const side of [Side.Khoi, Side.Nguyen]) {
       const x = GAME_WIDTH * positions[side];
       const y = GAME_HEIGHT * 0.51;
-      const af = avatarFrame(this, x, y, FACE_KEY[side], 84, SIDE_INFO[side].color);
-      af.container.setSize(112, 112);
-      af.container.setInteractive({
-        hitArea: new Phaser.Geom.Rectangle(-56, -56, 112, 112),
-        hitAreaCallback: Phaser.Geom.Rectangle.Contains,
-        useHandCursor: true,
-      });
-      af.container.on('pointerup', () => {
+      const af = avatarFrame(this, x, y, FACE_KEY[side], 84, SIDE_INFO[side].color, () => {
         this.side = side;
         this.stage = getUnlockedStage(side, this.difficulty); // nhảy tới màn cuối của campaign này
         this.refresh();
