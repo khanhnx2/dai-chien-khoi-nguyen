@@ -21,15 +21,17 @@ import { Base } from '../src/entities/base';
 import { Unit } from '../src/entities/unit';
 import { Economy } from '../src/systems/economy';
 import { SpawnManager } from '../src/systems/spawn';
-import { updateBattle } from '../src/systems/combat';
+import { nearestEnemyUnit, updateBattle } from '../src/systems/combat';
 import { updateProjectiles } from '../src/systems/projectile-system';
 import { Upgrades } from '../src/systems/upgrades';
 import { SpecialAbility } from '../src/systems/special-ability';
 import { RoofAttacker } from '../src/entities/roof-attacker';
 import { Projectile } from '../src/entities/projectile';
 import {
+  HERO_UPGRADES,
   LANE_Y,
   META_UPGRADES,
+  SUMO_UNLOCK_COST,
   SideMods,
   coinsEarned,
   metaFactor,
@@ -38,6 +40,7 @@ import {
 } from '../src/config/game-config';
 import { getUnlockedStage, unlockNextStage } from '../src/systems/progress';
 import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel } from '../src/systems/meta-upgrades';
+import { buyHeroUpgrade, canUseHero, heroUpgradeLevel, isHeroUnlocked, unlockHero } from '../src/systems/hero-shop';
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
 
 // --- Fake Phaser scene: game object stub chainable, đủ field/method code dùng tới. ---
@@ -494,6 +497,110 @@ check('meta: uniformSideMods cho Máy đúng', () => {
   assert.strictEqual(m.roofDmg, 1.5);
   assert.strictEqual(m.unitCost[UnitType.CungThu], 1);
   assert.strictEqual(m.income, 1);
+});
+
+// 23. Sumo config: dẫn xuất Bộ binh + không khắc chế + record mods đủ khóa.
+check('sumo config: dẫn xuất Bộ binh, không khắc chế', () => {
+  const bo = UNITS[UnitType.BoBinh];
+  const sumo = UNITS[UnitType.Sumo];
+  assert.strictEqual(sumo.hp, bo.hp, 'máu = Bộ binh');
+  assert.strictEqual(sumo.speed, bo.speed, 'tốc = Bộ binh');
+  assert.strictEqual(sumo.damage, bo.damage / 2, 'sát thương = ½ Bộ binh');
+  assert.strictEqual(sumo.cost, bo.cost / 2, 'giá = ½ Bộ binh');
+  assert.strictEqual(sumo.attackCooldownMs, bo.attackCooldownMs / 4, 'nhịp = ¼ Bộ binh');
+  assert.strictEqual(sumo.range, 42, 'cận chiến');
+  for (const t of [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Sumo]) {
+    assert.strictEqual(damageMultiplier(UnitType.Sumo, t), 1, 'Sumo không khắc chế ai');
+    assert.strictEqual(damageMultiplier(t, UnitType.Sumo), 1, 'không ai khắc chế Sumo');
+  }
+  assert.strictEqual(uniformSideMods(1).unitHp[UnitType.Sumo], 1, 'record mods đủ khóa Sumo');
+});
+
+// 24. HERO_UPGRADES: ×2 hệ số so với META, tách khỏi shop cũ.
+check('hero upgrades: hệ số ×2, tách khỏi META_UPGRADES', () => {
+  const hpDef = HERO_UPGRADES.find((d) => d.id === 'sumo.hp')!;
+  const costDef = HERO_UPGRADES.find((d) => d.id === 'sumo.cost')!;
+  const metaHp = META_UPGRADES.find((d) => d.id === 'bo-binh.hp')!;
+  const metaCost = META_UPGRADES.find((d) => d.id === 'bo-binh.cost')!;
+  assert.ok(Math.abs(hpDef.perLevel - metaHp.perLevel * 2) < 1e-9, 'máu ×2 hệ số');
+  assert.ok(Math.abs(costDef.perLevel - metaCost.perLevel * 2) < 1e-9, 'giá ×2 hệ số');
+  assert.ok(HERO_UPGRADES.every((d) => d.group === 'Sumo' && d.unitType === UnitType.Sumo), 'toàn bộ nhóm Sumo');
+  assert.ok(!META_UPGRADES.some((d) => d.id.startsWith('sumo.')), 'HERO tách khỏi META_UPGRADES');
+});
+
+// 25. Hero shop: mở khoá (idempotent, trừ xu) + nâng cấp ×2 áp đúng vào mods Sumo.
+check('hero shop: mở khoá + nâng cấp Sumo áp vào mods', () => {
+  addCoins(SUMO_UNLOCK_COST * 5);
+  assert.strictEqual(isHeroUnlocked(), false, 'chưa mở khoá lúc đầu');
+  const coinsBefore = getCoins();
+  assert.ok(unlockHero(), 'mở khoá khi đủ xu');
+  assert.strictEqual(isHeroUnlocked(), true, 'đã mở khoá');
+  assert.strictEqual(getCoins(), coinsBefore - SUMO_UNLOCK_COST, 'trừ đúng giá mở khoá');
+  assert.strictEqual(unlockHero(), false, 'mở khoá idempotent (maxLevel 1)');
+
+  const hpDef = HERO_UPGRADES.find((d) => d.id === 'sumo.hp')!;
+  addCoins(100000);
+  const boBefore = computePlayerMods().unitHp[UnitType.BoBinh];
+  assert.ok(buyHeroUpgrade(hpDef), 'mua nâng cấp máu Sumo');
+  const lvl = heroUpgradeLevel(hpDef);
+  const mods = computePlayerMods();
+  assert.ok(Math.abs(mods.unitHp[UnitType.Sumo] - metaFactor(hpDef, lvl)) < 1e-9, 'máu Sumo = metaFactor(cấp)');
+  assert.strictEqual(mods.unitHp[UnitType.BoBinh], boBefore, 'không rò sang Bộ binh');
+});
+
+// 26. canUseHero: chỉ Khôi + đã mở khoá.
+check('hero gating: canUseHero chỉ Khôi + unlocked', () => {
+  assert.strictEqual(canUseHero(Side.Khoi, true), true);
+  assert.strictEqual(canUseHero(Side.Khoi, false), false);
+  assert.strictEqual(canUseHero(Side.Nguyen, true), false);
+});
+
+// 27. Sumo charge: thấy địch trong tầm nhìn (ngoài tầm đánh) → lao tới ×4.
+check('sumo: lao tới ×4 khi thấy địch trong tầm nhìn', () => {
+  const bases = makeBases();
+  const sumo = new Unit(scene, Side.Khoi, UnitType.Sumo, 200);
+  const enemy = new Unit(scene, Side.Nguyen, UnitType.GiapBinh, 520); // dist 320: trong VISION 450, ngoài range
+  const units = [sumo, enemy];
+  pump(units, bases, new Economy(), 18, 0); // ~0.3s
+  const moved = sumo.x - 200;
+  // Lao ×4: ~248px/s × 0.3s ≈ 74px. Tốc thường chỉ ~18px → >55 chứng tỏ charge.
+  assert.ok(moved > 55, `Sumo phải lao tới (đi ${moved.toFixed(0)}px > 55)`);
+});
+
+// 28. Sumo rút lui: ≤50% máu → quay đầu chạy về thành mình (dù không có địch).
+check('sumo: ≤50% máu thì rút lui về hậu phương', () => {
+  const bases = makeBases();
+  const sumo = new Unit(scene, Side.Khoi, UnitType.Sumo, 500);
+  sumo.hp = sumo.maxHp * 0.5;
+  const units = [sumo];
+  pump(units, bases, new Economy(), 6, 0);
+  assert.strictEqual(sumo.retreating, true, 'phải chuyển trạng thái rút lui');
+  assert.ok(sumo.x < 500, 'phải lùi về trái (thành Khôi) dù không có địch');
+});
+
+// 29. Sumo hồi máu ở hậu phương: bất khả xâm + hồi tới đầy rồi lao lại.
+check('sumo: về sau Thành thì bất khả xâm + hồi máu tới đầy', () => {
+  const bases = makeBases();
+  const sumo = new Unit(scene, Side.Khoi, UnitType.Sumo, 50); // sau Thành Khôi (x<90)
+  sumo.retreating = true;
+  sumo.hp = sumo.maxHp * 0.5;
+  const enemy = new Unit(scene, Side.Nguyen, UnitType.CungThu, 850); // xa, không với tới
+  const units = [sumo, enemy];
+  assert.strictEqual(sumo.isTargetable(), false, 'đang hồi ở hậu phương → bất khả xâm');
+  assert.strictEqual(nearestEnemyUnit(enemy, units), null, 'địch không nhắm được Sumo đang hồi');
+  pump(units, bases, new Economy(), 130, 0); // ~2.17s > 2s hồi từ 50%→100%
+  assert.strictEqual(sumo.hp, sumo.maxHp, 'phải hồi đầy máu');
+  assert.strictEqual(sumo.retreating, false, 'đầy máu → thôi rút lui, lao lại');
+});
+
+// 30. Sumo vẫn dính đòn khi đang chạy về (chưa qua Thành).
+check('sumo: còn trước Thành khi rút → vẫn bị nhắm', () => {
+  const sumo = new Unit(scene, Side.Khoi, UnitType.Sumo, 400); // trước Thành (x>90)
+  sumo.retreating = true;
+  sumo.hp = sumo.maxHp * 0.5;
+  const enemy = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 420);
+  assert.strictEqual(sumo.isTargetable(), true, 'chạy về nhưng chưa qua Thành → vẫn dính đòn');
+  assert.strictEqual(nearestEnemyUnit(enemy, [sumo, enemy])?.target, sumo, 'địch nhắm được Sumo');
 });
 
 console.log(`\n${passed} test cases passed.`);

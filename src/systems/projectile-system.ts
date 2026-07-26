@@ -50,7 +50,7 @@ export function updateProjectiles(
  */
 function pierceThrough(p: Projectile, units: Unit[], enemyBase: Base): void {
   for (const u of units) {
-    if (u.side === p.side || u.isDead() || p.hitUnits.has(u)) continue;
+    if (u.side === p.side || u.isDead() || !u.isTargetable() || p.hitUnits.has(u)) continue;
     if (Math.abs(u.x - p.x) <= STRAIGHT_HIT_DIST) {
       u.takeDamage(p.damage);
       p.hitUnits.add(u);
@@ -77,7 +77,7 @@ function explode(p: Projectile, units: Unit[], enemyBase: Base): void {
     return;
   }
   for (const u of units) {
-    if (u.side === p.side || u.isDead()) continue;
+    if (u.side === p.side || u.isDead() || !u.isTargetable()) continue;
     if (Math.abs(u.x - p.x) <= p.aoeRadius) u.takeDamage(p.damage);
   }
   if (Math.abs(enemyBase.frontX - p.x) <= p.aoeRadius) enemyBase.takeDamage(p.damage);
@@ -87,7 +87,7 @@ function nearestEnemyWithin(p: Projectile, units: Unit[], dist: number): Unit | 
   let best: Unit | null = null;
   let bestD = dist;
   for (const u of units) {
-    if (u.side === p.side || u.isDead()) continue;
+    if (u.side === p.side || u.isDead() || !u.isTargetable()) continue;
     const d = Math.abs(u.x - p.x);
     if (d <= bestD) {
       bestD = d;

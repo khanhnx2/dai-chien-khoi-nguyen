@@ -14,6 +14,7 @@ import {
 import type { Economy } from '../systems/economy';
 import { SpawnManager, unitCost } from '../systems/spawn';
 import type { SpecialAbility } from '../systems/special-ability';
+import { canUseHero, isHeroUnlocked } from '../systems/hero-shop';
 import { sound } from '../audio/sound-manager';
 
 interface HudCallbacks {
@@ -53,6 +54,22 @@ export class BattleHud {
       btn.on('pointerdown', () => cb.onSpawn(type));
       this.buttons.set(type, btn);
     });
+
+    // Nút đẻ Sumo — chỉ khi cầm Khôi + đã mở khoá ở "Quán Phở Anh Khôi".
+    if (canUseHero(playerSide, isHeroUnlocked())) {
+      const type = UnitType.Sumo;
+      const btn = scene.add
+        .text(14 + PLAYER_SPAWN_ORDER.length * 132, GAME_HEIGHT - 46, `${UNITS[type].label}\n${unitCost(mods, playerSide, type)}💰`, {
+          fontSize: '14px',
+          color: '#ffffff',
+          align: 'center',
+          backgroundColor: '#be185d',
+          padding: { x: 8, y: 8 },
+        })
+        .setInteractive({ useHandCursor: true });
+      btn.on('pointerdown', () => cb.onSpawn(type));
+      this.buttons.set(type, btn);
+    }
 
     this.specialBtn = scene.add
       .text(GAME_WIDTH - 170, GAME_HEIGHT - 46, '', {

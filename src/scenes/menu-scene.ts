@@ -66,6 +66,17 @@ export class MenuScene extends Phaser.Scene {
       fontSize: 17,
       onClick: () => this.scene.start('upgrade'),
     });
+    // Cửa hàng Hero (Sumo) — riêng phe Khôi. Luôn hiện để mua/nâng cấp bất kỳ lúc nào.
+    clayButton(this, {
+      x: 128,
+      y: 76,
+      width: 222,
+      height: 40,
+      label: '🍜 Quán Phở Anh Khôi',
+      fill: COLORS.red,
+      fontSize: 15,
+      onClick: () => this.scene.start('hero'),
+    });
 
     this.buildDifficultyRow();
     this.buildSideRow();

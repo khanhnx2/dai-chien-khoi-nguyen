@@ -61,6 +61,7 @@ export enum UnitType {
   CungThu = 'cung-thu', // bắn xa, giòn
   GiapBinh = 'giap-binh', // trâu, chậm, đắt
   Father = 'father', // TƯỚNG của người chơi (Máy không có), bắn ma thuật xuyên
+  Sumo = 'sumo', // HERO riêng phe Khôi: cận chiến nhịp nhanh, lao tới, tự rút lui hồi máu
 }
 
 export interface UnitStats {
@@ -135,6 +136,21 @@ export const UNITS: Record<UnitType, UnitStats> = {
     size: 34,
     piercing: true,
   },
+  // Sumo — HERO phe Khôi. Dẫn xuất từ Bộ binh: máu & tốc = Bộ binh; sức mạnh = ½;
+  // nhịp đánh = ¼ (rất nhanh); giá = ½. Lao tới ×4 khi thấy địch, tự rút lui hồi máu.
+  [UnitType.Sumo]: {
+    label: 'Sumo',
+    hp: 100, // = Bộ binh
+    damage: 6, // = ½ Bộ binh (12)
+    speed: 62, // = Bộ binh
+    range: 42, // cận chiến
+    cost: 20, // = ½ Bộ binh (40)
+    attackCooldownMs: 175, // = ¼ Bộ binh (700)
+    spawnCooldownMs: 1500,
+    reward: 10,
+    color: 0xf472b6,
+    size: 30,
+  },
 };
 
 /** Biểu tượng emoji theo loại lính (đọc rõ kéo–búa–bao; màu phe thể hiện bằng nền tròn). */
@@ -143,10 +159,14 @@ export const UNIT_EMOJI: Record<UnitType, string> = {
   [UnitType.CungThu]: '🏹',
   [UnitType.GiapBinh]: '🛡️',
   [UnitType.Father]: '🧙',
+  [UnitType.Sumo]: '🥋',
 };
 
 /** Khoá texture khuôn mặt Father (đã tách nền) — Father dùng ảnh thật thay emoji. */
 export const FATHER_FACE_KEY = 'unit-father';
+
+/** Khoá texture ảnh Sumo (đã tách nền) — Sumo dùng ảnh thật thay emoji. */
+export const SUMO_FACE_KEY = 'unit-sumo';
 
 /** Bảng khắc chế: kéo–búa–bao (Father không tham gia khắc chế). Bộ>Cung, Cung>Giáp, Giáp>Bộ. */
 export const COUNTER_MULTIPLIER = 1.6;
@@ -312,7 +332,7 @@ export interface SideMods {
   income: number;
 }
 
-const ALL_UNIT_TYPES: UnitType[] = [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Father];
+const ALL_UNIT_TYPES: UnitType[] = [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Father, UnitType.Sumo];
 
 function unitRecord(value: number): Record<UnitType, number> {
   return {
@@ -320,6 +340,7 @@ function unitRecord(value: number): Record<UnitType, number> {
     [UnitType.CungThu]: value,
     [UnitType.GiapBinh]: value,
     [UnitType.Father]: value,
+    [UnitType.Sumo]: value,
   };
 }
 
@@ -396,5 +417,42 @@ export function metaFactor(def: MetaUpgradeDef, level: number): number {
   const f = 1 + level * def.perLevel;
   return def.perLevel < 0 ? Math.max(META_REDUCTION_FLOOR, f) : f;
 }
+
+// ============================================================================
+// HERO (Sumo) — hằng số hành vi + nâng cấp riêng (×2 hệ số) + mở khoá.
+// Nâng cấp hero TÁCH khỏi META_UPGRADES để không lọt vào shop NÂNG CẤP cũ;
+// scene "Quán Phở Anh Khôi" render riêng list này.
+// ============================================================================
+
+/** Tầm nhìn: có địch trong khoảng này (ngoài tầm đánh) → Sumo lao tới ×4. */
+export const SUMO_VISION_RANGE = 450;
+/** Hệ số tăng tốc khi lao tới. */
+export const SUMO_CHARGE_MULT = 4;
+/** Ngưỡng máu (tỉ lệ) Sumo bắt đầu rút lui hồi máu. */
+export const SUMO_RETREAT_HP_FRAC = 0.5;
+/** Hệ số tốc độ khi chạy về hậu phương. */
+export const SUMO_RETREAT_SPEED_MULT = 4;
+/** Tốc hồi máu mỗi giây (tỉ lệ máu tối đa) khi ở hậu phương an toàn. */
+export const SUMO_HEAL_FRAC_PER_SEC = 0.25;
+/** Giãn cách tối thiểu giữa 2 tiếng sủa (ms) — tránh sủa liên thanh. */
+export const SUMO_BARK_THROTTLE_MS = 500;
+/** Giá xu mở khoá Sumo (1 lần, vĩnh viễn). */
+export const SUMO_UNLOCK_COST = 60;
+
+const HERO_INC = 0.12; // +12%/cấp (×2 quân thường) — máu, sát thương
+const HERO_RED = -0.06; // -6%/cấp (×2 quân thường) — giá, hồi chiêu
+
+/** Nâng cấp Sumo: cùng bộ 4 chỉ số như troop nhưng hệ số ×2. */
+export const HERO_UPGRADES: MetaUpgradeDef[] = [
+  { id: 'sumo.hp', group: 'Sumo', label: 'Máu', target: 'unitHp', unitType: UnitType.Sumo, perLevel: HERO_INC, maxLevel: MAX_LV, baseCost: 8, costGrowth: 1.4 },
+  { id: 'sumo.dmg', group: 'Sumo', label: 'Sát thương', target: 'unitDmg', unitType: UnitType.Sumo, perLevel: HERO_INC, maxLevel: MAX_LV, baseCost: 8, costGrowth: 1.4 },
+  { id: 'sumo.spawncd', group: 'Sumo', label: 'Giảm hồi chiêu đẻ', target: 'unitSpawnCd', unitType: UnitType.Sumo, perLevel: HERO_RED, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.45 },
+  { id: 'sumo.cost', group: 'Sumo', label: 'Giảm giá mua', target: 'unitCost', unitType: UnitType.Sumo, perLevel: HERO_RED, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.45 },
+];
+
+/** Def "mở khoá" Sumo (1 cấp, giá cố định) — KHÔNG fold vào mods (perLevel 0). */
+export const SUMO_UNLOCK: MetaUpgradeDef = {
+  id: 'sumo.unlock', group: 'Sumo', label: 'Mở khoá Sumo', target: 'income', perLevel: 0, maxLevel: 1, baseCost: SUMO_UNLOCK_COST, costGrowth: 1,
+};
 
 export { ALL_UNIT_TYPES };

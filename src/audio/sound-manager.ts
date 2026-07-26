@@ -2,7 +2,7 @@
 // Singleton `sound` để mọi hệ thống (combat, roof, scene) gọi được.
 // AudioContext chỉ chạy sau thao tác người dùng (chính sách trình duyệt) — tự resume khi phát.
 
-type Sfx = 'spawn' | 'special' | 'win' | 'lose' | 'slash' | 'arrow' | 'egg' | 'water' | 'magic';
+type Sfx = 'spawn' | 'special' | 'win' | 'lose' | 'slash' | 'arrow' | 'egg' | 'water' | 'magic' | 'bark';
 
 const THROTTLE_MS = 55; // chống trùng lặp SFX cùng loại quá dày
 
@@ -55,7 +55,25 @@ class SoundManager {
       case 'egg': return this.sweep(300, 560, 0.11, 'sine', 0.16); // ném trứng: lob nhẹ
       case 'water': return this.noise(0.13, 3200, 0.18); // bắn nước: spray
       case 'magic': return this.magic(); // bắn phép: sparkle
+      case 'bark': return this.bark(); // Sumo (chó) đánh: sủa "gắu-gắu"
     }
+  }
+
+  /** Tiếng chó sủa "gắu-gắu": 2 nhịp sawtooth hạ cao độ nhanh + chút noise cho sắc. */
+  private bark(): void {
+    [0, 0.12].forEach((delay) => {
+      const n = this.osc();
+      if (!n) return;
+      const t = n.ctx.currentTime + delay;
+      n.o.type = 'sawtooth';
+      n.o.frequency.setValueAtTime(340, t);
+      n.o.frequency.exponentialRampToValueAtTime(120, t + 0.09);
+      n.g.gain.setValueAtTime(0.0001, t);
+      n.g.gain.linearRampToValueAtTime(0.2, t + 0.012);
+      n.g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+      n.o.start(t);
+      n.o.stop(t + 0.12);
+    });
   }
 
   private osc(): { ctx: AudioContext; o: OscillatorNode; g: GainNode } | null {

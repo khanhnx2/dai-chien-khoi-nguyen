@@ -3,10 +3,12 @@ import {
   FATHER_FACE_KEY,
   LANE_Y,
   SIDE_INFO,
+  SUMO_FACE_KEY,
   Side,
   UNITS,
   UNIT_EMOJI,
   UnitType,
+  baseXOf,
   directionOf,
   type UnitStats,
 } from '../config/game-config';
@@ -23,6 +25,10 @@ export class Unit {
   hp: number;
   /** Thời điểm (ms) đánh gần nhất — dùng cho nhịp đánh. */
   lastAttackAt = 0;
+  /** Hero (Sumo): đang rút lui về hậu phương hồi máu? */
+  retreating = false;
+  /** Hero (Sumo): thời điểm (ms) sủa gần nhất — tiết chế tiếng sủa. */
+  lastBarkAt = 0;
 
   private readonly scene: Phaser.Scene;
   private readonly disc: Phaser.GameObjects.Arc;
@@ -41,11 +47,11 @@ export class Unit {
 
     const y = LANE_Y - this.stats.size / 2;
     this.disc = scene.add.circle(startX, y, this.stats.size / 2 + 2, SIDE_INFO[side].color).setAlpha(0.9);
-    // Father dùng ảnh mặt thật; các lính khác dùng emoji.
-    this.icon =
-      type === UnitType.Father
-        ? scene.add.image(startX, y, FATHER_FACE_KEY).setDisplaySize(this.stats.size, this.stats.size)
-        : scene.add.text(startX, y, UNIT_EMOJI[type], { fontSize: `${this.stats.size - 6}px` }).setOrigin(0.5);
+    // Father & Sumo dùng ảnh thật; các lính khác dùng emoji.
+    const faceKey = type === UnitType.Father ? FATHER_FACE_KEY : type === UnitType.Sumo ? SUMO_FACE_KEY : null;
+    this.icon = faceKey
+      ? scene.add.image(startX, y, faceKey).setDisplaySize(this.stats.size, this.stats.size)
+      : scene.add.text(startX, y, UNIT_EMOJI[type], { fontSize: `${this.stats.size - 6}px` }).setOrigin(0.5);
     this.hpBar = scene.add
       .rectangle(startX - this.stats.size / 2, y - this.stats.size / 2 - 6, this.stats.size, 4, 0x22c55e)
       .setOrigin(0, 0.5);
@@ -63,8 +69,24 @@ export class Unit {
     this.hpBar.width = this.stats.size * (this.hp / this.maxHp);
   }
 
+  /** Hồi máu (Sumo ở hậu phương), kẹp trần maxHp. */
+  heal(amount: number): void {
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+    this.hpBar.width = this.stats.size * (this.hp / this.maxHp);
+  }
+
   isDead(): boolean {
     return this.hp <= 0;
+  }
+
+  /** Đã lùi về (tại/sau) Thành của phe mình — vùng an toàn hồi máu. */
+  isBehindOwnBase(): boolean {
+    return directionOf(this.side) * (this.x - baseXOf(this.side)) <= 0;
+  }
+
+  /** Có thể bị địch nhắm/bắn? Sumo đang hồi ở hậu phương thì bất khả xâm. */
+  isTargetable(): boolean {
+    return !this.retreating || !this.isBehindOwnBase();
   }
 
   /**

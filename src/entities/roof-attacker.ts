@@ -62,7 +62,7 @@ export class RoofAttacker {
     let best: Unit | null = null;
     let bestD = range;
     for (const u of units) {
-      if (u.side === this.side || u.isDead()) continue;
+      if (u.side === this.side || u.isDead() || !u.isTargetable()) continue;
       const d = Math.abs(u.x - this.frontX);
       if (d <= bestD) {
         bestD = d;

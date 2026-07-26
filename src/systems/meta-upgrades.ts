@@ -1,4 +1,5 @@
 import {
+  HERO_UPGRADES,
   META_UPGRADES,
   MetaUpgradeDef,
   SideMods,
@@ -79,12 +80,16 @@ export function buyUpgrade(def: MetaUpgradeDef): boolean {
   return true;
 }
 
-/** SideMods của người chơi tính từ các cấp nâng cấp đã mua. */
+/**
+ * SideMods của người chơi tính từ các cấp nâng cấp đã mua.
+ * Gồm cả nâng cấp thường (META_UPGRADES) lẫn nâng cấp hero (HERO_UPGRADES — ×2 hệ số,
+ * chỉ chạm chỉ số của Sumo).
+ */
 export function computePlayerMods(): SideMods {
   const mods = uniformSideMods(1); // khởi đầu tất cả ×1
-  for (const def of META_UPGRADES) {
+  const apply = (def: MetaUpgradeDef) => {
     const level = getLevel(def.id);
-    if (level <= 0) continue;
+    if (level <= 0) return;
     const factor = metaFactor(def, level);
     switch (def.target) {
       case 'baseHp': mods.baseHp *= factor; break;
@@ -96,6 +101,8 @@ export function computePlayerMods(): SideMods {
       case 'unitCost': mods.unitCost[def.unitType as UnitType] *= factor; break;
       case 'unitSpawnCd': mods.unitSpawnCd[def.unitType as UnitType] *= factor; break;
     }
-  }
+  };
+  for (const def of META_UPGRADES) apply(def);
+  for (const def of HERO_UPGRADES) apply(def);
   return mods;
 }

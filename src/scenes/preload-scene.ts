@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { FACE_KEY, FATHER_FACE_KEY, Side } from '../config/game-config';
+import { FACE_KEY, FATHER_FACE_KEY, SUMO_FACE_KEY, Side } from '../config/game-config';
 import khoiFaceUrl from '../../assets/characters/player-khoi-cutout.png';
 import nguyenFaceUrl from '../../assets/characters/player-nguyen-cutout.png';
 import fatherFaceUrl from '../../assets/characters/player-father-cutout.png';
+import sumoUrl from '../../assets/characters/sumo-cutout.png';
 
 /**
  * Preload: nạp avatar (đã tách nền). Import qua Vite để URL đúng base path trên
@@ -22,6 +23,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(FACE_KEY[Side.Khoi], khoiFaceUrl);
     this.load.image(FACE_KEY[Side.Nguyen], nguyenFaceUrl);
     this.load.image(FATHER_FACE_KEY, fatherFaceUrl);
+    this.load.image(SUMO_FACE_KEY, sumoUrl);
   }
 
   create(): void {
