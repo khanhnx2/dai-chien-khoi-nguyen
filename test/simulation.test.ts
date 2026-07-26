@@ -41,6 +41,8 @@ import {
   uniformSideMods,
 } from '../src/config/game-config';
 import { getUnlockedStage, unlockNextStage } from '../src/systems/progress';
+import { ReinforcementManager } from '../src/systems/reinforcements';
+import { REINFORCE_HP_FRAC, reinforcementCount } from '../src/config/game-config';
 import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel } from '../src/systems/meta-upgrades';
 import { buyHeroUpgrade, heroUpgradeLevel, isHeroUnlocked, unlockHero, usableHero } from '../src/systems/hero-shop';
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
@@ -621,6 +623,55 @@ check('labubu: charge sang trái + rút lui sang phải (đối xứng Sumo)', (
   pump([l2], bases, new Economy(), 6, 0);
   assert.strictEqual(l2.retreating, true, 'phải rút lui');
   assert.ok(l2.x > 500, 'Labubu lùi sang phải (thành Nguyên)');
+});
+
+// 32. reinforcementCount: 0 dưới màn 30, floor(màn/10) từ 30 trở đi.
+check('tiếp viện: reinforcementCount đúng theo màn', () => {
+  assert.strictEqual(reinforcementCount(29), 0);
+  assert.strictEqual(reinforcementCount(30), 3);
+  assert.strictEqual(reinforcementCount(49), 4);
+  assert.strictEqual(reinforcementCount(90), 9);
+  assert.strictEqual(reinforcementCount(99), 9);
+});
+
+// 33. ReinforcementManager: kích đúng 1 lần khi thành Máy ≤50%, đúng thành phần.
+check('tiếp viện: màn 30 kích 1 lần → 12 lính (3 mỗi loại + hero Máy)', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ReinforcementManager();
+  const aiSide = Side.Nguyen; // Máy = Nguyên → hero Labubu
+
+  // Chưa xuống ngưỡng → không kích.
+  assert.strictEqual(mgr.update(30, aiSide, bases, spawn, units), false);
+  assert.strictEqual(units.length, 0);
+
+  // Máu thành Máy ≤50% → kích.
+  bases[aiSide].hp = bases[aiSide].maxHp * (REINFORCE_HP_FRAC - 0.1);
+  assert.strictEqual(mgr.update(30, aiSide, bases, spawn, units), true);
+  assert.strictEqual(units.length, 12, '3 × (bộ binh, cung thủ, giáp binh, Labubu)');
+
+  const countOf = (t: UnitType) => units.filter((u) => u.type === t).length;
+  assert.strictEqual(countOf(UnitType.BoBinh), 3);
+  assert.strictEqual(countOf(UnitType.CungThu), 3);
+  assert.strictEqual(countOf(UnitType.GiapBinh), 3);
+  assert.strictEqual(countOf(heroForSide(aiSide)!.unitType), 3);
+  assert.ok(units.every((u) => u.side === aiSide), 'tất cả thuộc phe Máy');
+
+  // Chỉ kích 1 lần.
+  assert.strictEqual(mgr.update(30, aiSide, bases, spawn, units), false);
+  assert.strictEqual(units.length, 12);
+});
+
+// 34. Màn <30: không tiếp viện dù thành Máy kiệt máu.
+check('tiếp viện: màn 20 không kích dù thành Máy ≤50%', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ReinforcementManager();
+  bases[Side.Nguyen].hp = bases[Side.Nguyen].maxHp * 0.1;
+  assert.strictEqual(mgr.update(20, Side.Nguyen, bases, spawn, units), false);
+  assert.strictEqual(units.length, 0);
 });
 
 console.log(`\n${passed} test cases passed.`);

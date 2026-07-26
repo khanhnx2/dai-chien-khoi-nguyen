@@ -11,9 +11,11 @@ import {
   UpgradeType,
   coinsEarned,
   enemyOf,
+  heroForSide,
   stageStatMultiplier,
   uniformSideMods,
 } from '../config/game-config';
+import type { Sfx } from '../audio/sound-manager';
 import { addCoins, computePlayerMods } from '../systems/meta-upgrades';
 import { Base } from '../entities/base';
 import type { Unit } from '../entities/unit';
@@ -26,6 +28,7 @@ import { updateProjectiles } from '../systems/projectile-system';
 import { Upgrades } from '../systems/upgrades';
 import { SpecialAbility } from '../systems/special-ability';
 import { BasicAi } from '../ai/basic-ai';
+import { ReinforcementManager } from '../systems/reinforcements';
 import { BattleHud } from '../ui/battle-hud';
 import { UpgradePanel } from '../ui/upgrade-panel';
 import { sound } from '../audio/sound-manager';
@@ -53,6 +56,7 @@ export class BattleScene extends Phaser.Scene {
   private upgrades!: Upgrades;
   private special!: SpecialAbility;
   private ai!: BasicAi;
+  private reinforcements!: ReinforcementManager;
   private hud!: BattleHud;
   private upgradePanel!: UpgradePanel;
   private gameOver = false;
@@ -101,6 +105,7 @@ export class BattleScene extends Phaser.Scene {
     this.upgrades = new Upgrades();
     this.special = new SpecialAbility({ [Side.Khoi]: mods[Side.Khoi].roofDmg, [Side.Nguyen]: mods[Side.Nguyen].roofDmg });
     this.ai = new BasicAi(this.aiSide, this.difficulty);
+    this.reinforcements = new ReinforcementManager();
     this.hud = new BattleHud(this, this.playerSide, mods, {
       onSpawn: (type) => this.onPlayerSpawn(type),
       onSpecial: () => this.onPlayerSpecial(),
@@ -143,6 +148,15 @@ export class BattleScene extends Phaser.Scene {
       scene: this,
     });
     updateBattle(this.units, this.bases, this.economy, dt, time, this.projectiles, this);
+    // Quân tiếp viện cho Máy (sau combat để dùng máu thành mới nhất của frame này).
+    // Bỏ qua nếu thành Máy vừa bị hạ trong frame này (tránh toast trên màn sắp kết thúc).
+    if (
+      !this.bases[this.aiSide].isDead() &&
+      this.reinforcements.update(this.stage, this.aiSide, this.bases, this.spawn, this.units)
+    ) {
+      sound.play((heroForSide(this.aiSide)?.sfx as Sfx) ?? 'spawn');
+      this.showReinforceToast();
+    }
     this.roofs[Side.Khoi].update(time, this.units, this.projectiles, this.upgrades);
     this.roofs[Side.Nguyen].update(time, this.units, this.projectiles, this.upgrades);
     updateProjectiles(this.projectiles, this.units, this.bases, dt);
@@ -151,6 +165,29 @@ export class BattleScene extends Phaser.Scene {
 
     if (this.bases[this.aiSide].isDead()) this.endGame(true);
     else if (this.bases[this.playerSide].isDead()) this.endGame(false);
+  }
+
+  /** Toast giữa màn báo Máy gọi quân tiếp viện (tự mờ dần rồi biến mất). */
+  private showReinforceToast(): void {
+    const toast = this.add
+      .text(GAME_WIDTH / 2, LANE_Y - 140, '⚔️ QUÂN TIẾP VIỆN!', {
+        fontSize: '30px',
+        color: '#ef4444',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(1000);
+    this.tweens.add({
+      targets: toast,
+      alpha: { from: 1, to: 0 },
+      y: toast.y - 40,
+      scale: { from: 1.2, to: 1 },
+      duration: 1500,
+      ease: 'Cubic.easeOut',
+      onComplete: () => toast.destroy(),
+    });
   }
 
   private endGame(playerWon: boolean): void {

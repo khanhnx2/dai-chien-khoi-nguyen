@@ -303,14 +303,22 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
   [Difficulty.Hard]: { label: 'Khó', decisionIntervalMs: 500, buysUpgrades: true, statMultiplier: 1.5 },
 };
 
-// ---- Chiến dịch 50 màn: mỗi màn Máy +10% máu & công (nhân chồng lên mức khó) ----
-export const TOTAL_STAGES = 50;
+// ---- Chiến dịch 99 màn: mỗi màn Máy +10% máu & công (nhân chồng lên mức khó) ----
+export const TOTAL_STAGES = 99;
 export const STAGE_STAT_PER_LEVEL = 0.1; // +10% mỗi màn
 
-/** Hệ số máu&công theo màn: màn 1 = ×1.0 (base), màn 50 = ×5.9. */
+/** Hệ số máu&công theo màn: màn 1 = ×1.0 (base), màn 50 = ×5.9, màn 99 = ×10.8. */
 export function stageStatMultiplier(stage: number): number {
   const s = Math.max(1, Math.min(TOTAL_STAGES, stage));
   return 1 + (s - 1) * STAGE_STAT_PER_LEVEL;
+}
+
+// ---- Quân tiếp viện cho Máy: từ màn ≥30, kích 1 lần khi thành Máy ≤50% máu ----
+export const REINFORCE_MIN_STAGE = 30;
+export const REINFORCE_HP_FRAC = 0.5; // ngưỡng máu thành Máy để kích
+/** Số lính MỖI loại trong 1 đợt tiếp viện; 0 nếu màn < REINFORCE_MIN_STAGE. */
+export function reinforcementCount(stage: number): number {
+  return stage >= REINFORCE_MIN_STAGE ? Math.floor(stage / 10) : 0;
 }
 
 /**

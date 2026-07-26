@@ -63,6 +63,14 @@ export class SpawnManager {
     return { unit };
   }
 
+  /** Đẻ 1 lính bỏ qua vàng/cap/hồi chiêu (dùng cho quân tiếp viện). xOffset lệch nhẹ tránh chồng khít. */
+  forceSpawn(side: Side, type: UnitType, units: Unit[], xOffset = 0): Unit {
+    const m = this.mods[side];
+    const unit = new Unit(this.scene, side, type, spawnX(side) + xOffset, m.unitHp[type], m.unitDmg[type]);
+    units.push(unit);
+    return unit;
+  }
+
   /** ms còn lại tới lượt đẻ tiếp của (side,type); 0 nếu sẵn sàng. */
   cooldownLeft(side: Side, type: UnitType, now: number): number {
     return Math.max(0, (this.readyAt.get(`${side}:${type}`) ?? 0) - now);
