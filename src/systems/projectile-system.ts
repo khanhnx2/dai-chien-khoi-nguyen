@@ -63,8 +63,19 @@ function pierceThrough(p: Projectile, units: Unit[], enemyBase: Base): void {
   }
 }
 
-/** Trứng nổ: sát thương vùng cho lính địch trong bán kính + thành địch nếu chạm. */
+/**
+ * Đạn arc rơi trúng mục tiêu.
+ * - aoeRadius > 0 (kỹ năng Mưa trứng): NỔ DIỆN RỘNG — trúng mọi lính địch trong bán kính.
+ * - aoeRadius ≤ 0 (trứng nóc thành): ĐƠN MỤC TIÊU — chỉ 1 lính gần điểm rơi nhất.
+ * Chỉ Tướng (đạn xuyên) & kỹ năng tay bấm mới đánh nhiều mục tiêu.
+ */
 function explode(p: Projectile, units: Unit[], enemyBase: Base): void {
+  if (p.aoeRadius <= 0) {
+    const hit = nearestEnemyWithin(p, units, STRAIGHT_HIT_DIST);
+    if (hit) hit.takeDamage(p.damage);
+    else if (Math.abs(enemyBase.frontX - p.x) <= STRAIGHT_HIT_DIST) enemyBase.takeDamage(p.damage);
+    return;
+  }
   for (const u of units) {
     if (u.side === p.side || u.isDead()) continue;
     if (Math.abs(u.x - p.x) <= p.aoeRadius) u.takeDamage(p.damage);

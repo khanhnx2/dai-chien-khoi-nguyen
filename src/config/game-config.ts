@@ -194,8 +194,9 @@ export interface RoofAttackConfig {
 }
 
 export const ROOF_ATTACK: Record<Side, RoofAttackConfig> = {
-  // Khôi ném trứng: vòng cung, nhịp chậm, nổ trúng nhóm.
-  [Side.Khoi]: { kind: 'arc', damage: 20, range: 340, cooldownMs: 1400, projectileSpeed: 460, aoeRadius: 55, color: 0xfde047 },
+  // Khôi ném trứng: vòng cung, nhịp chậm, ĐƠN MỤC TIÊU (aoeRadius 0 → chỉ trúng 1 lính
+  // gần điểm rơi). Chỉ Tướng & kỹ năng tay mới đánh diện rộng.
+  [Side.Khoi]: { kind: 'arc', damage: 20, range: 340, cooldownMs: 1400, projectileSpeed: 460, aoeRadius: 0, color: 0xfde047 },
   // Nguyên bắn súng nước: thẳng, nhanh, đơn mục tiêu.
   [Side.Nguyen]: { kind: 'straight', damage: 13, range: 320, cooldownMs: 650, projectileSpeed: 560, aoeRadius: 0, color: 0x38bdf8 },
 };

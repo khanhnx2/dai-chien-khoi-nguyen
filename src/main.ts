@@ -24,6 +24,19 @@ const game = new Phaser.Game({
 // PWA: nút Cài đặt / Cập nhật + khoá xoay ngang.
 setupPwa();
 
+// iOS: sau khi xoay ngang, Safari cập nhật kích thước cửa sổ TRỄ → Phaser (Scale.FIT)
+// đo nhầm và kẹt canvas ở kích thước dọc (chạm lệch, không chơi được). Ép đo lại
+// ngay + vài lần sau khi layout ổn định. Android/desktop: refresh dư vô hại.
+function refreshScale(): void {
+  game.scale.refresh();
+}
+window.addEventListener('orientationchange', () => {
+  refreshScale();
+  [50, 200, 500].forEach((ms) => window.setTimeout(refreshScale, ms));
+});
+window.addEventListener('resize', refreshScale);
+window.visualViewport?.addEventListener('resize', refreshScale);
+
 // Dev: expose để debug/kiểm thử thủ công (khi tab ẩn, RAF bị trình duyệt tạm dừng).
 if (import.meta.env.DEV) {
   (window as unknown as { __game: Phaser.Game }).__game = game;

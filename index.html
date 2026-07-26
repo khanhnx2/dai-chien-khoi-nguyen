@@ -14,7 +14,13 @@
     <title>Đại chiến Khôi Nguyên</title>
     <style>
       html, body { margin: 0; height: 100%; background: #1a1a2e; overflow: hidden; }
-      #game { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+      /* Neo khung game vào viewport thật (iOS: height:100% qua html/body báo sai sau
+         khi xoay ngang → dùng position:fixed + dvh để luôn phủ đúng màn hình). */
+      #game {
+        position: fixed; inset: 0;
+        width: 100vw; height: 100vh; height: 100dvh;
+        display: flex; align-items: center; justify-content: center;
+      }
 
       /* Nút PWA nổi (Cài đặt / Cập nhật) */
       .pwa-btn {
