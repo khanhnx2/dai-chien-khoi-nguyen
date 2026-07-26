@@ -108,6 +108,7 @@ export class BattleScene extends Phaser.Scene {
     this.reinforcements = new ReinforcementManager();
     this.hud = new BattleHud(this, this.playerSide, mods, {
       onSpawn: (type) => this.onPlayerSpawn(type),
+      onSpawnTitan: (type) => this.onPlayerSpawnTitan(type),
       onSpecial: () => this.onPlayerSpecial(),
     });
     this.upgradePanel = new UpgradePanel(this, this.playerSide, (type) => this.onPlayerUpgrade(type));
@@ -116,6 +117,12 @@ export class BattleScene extends Phaser.Scene {
   private onPlayerSpawn(type: UnitType): void {
     if (this.gameOver) return;
     const result = this.spawn.trySpawn(this.playerSide, type, this.economy, this.units, this.time.now);
+    if ('unit' in result) sound.play('spawn');
+  }
+
+  private onPlayerSpawnTitan(type: UnitType): void {
+    if (this.gameOver) return;
+    const result = this.spawn.trySpawnTitan(this.playerSide, type, this.economy, this.units, this.time.now);
     if ('unit' in result) sound.play('spawn');
   }
 

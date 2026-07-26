@@ -43,6 +43,8 @@ import {
 import { getUnlockedStage, unlockNextStage } from '../src/systems/progress';
 import { ReinforcementManager } from '../src/systems/reinforcements';
 import { REINFORCE_HP_FRAC, reinforcementCount } from '../src/config/game-config';
+import { updateTitan } from '../src/systems/titan-behavior';
+import { titanForSide, titanSpawnX, TITAN_AURA_HP_FRAC } from '../src/config/game-config';
 import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel } from '../src/systems/meta-upgrades';
 import { buyHeroUpgrade, heroUpgradeLevel, isHeroUnlocked, unlockHero, usableHero } from '../src/systems/hero-shop';
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
@@ -63,6 +65,7 @@ function makeGO() {
     setDisplaySize: chain,
     setStrokeStyle: chain,
     setInteractive: chain,
+    setVisible: chain,
     on: chain,
     destroy: () => {},
   });
@@ -672,6 +675,80 @@ check('tiếp viện: màn 20 không kích dù thành Máy ≤50%', () => {
   bases[Side.Nguyen].hp = bases[Side.Nguyen].maxHp * 0.1;
   assert.strictEqual(mgr.update(20, Side.Nguyen, bases, spawn, units), false);
   assert.strictEqual(units.length, 0);
+});
+
+// 35. Titan: stats dẫn xuất Giáp binh + vị trí đẻ 1/3 sân.
+check('titan: stats (hp1400/dmg36/speed20/cd2200/cost200) + spawnX 1/3', () => {
+  const c = UNITS[UnitType.Capibara];
+  assert.strictEqual(c.hp, 1400);
+  assert.strictEqual(c.damage, 36);
+  assert.strictEqual(c.speed, 20);
+  assert.strictEqual(c.attackCooldownMs, 2200);
+  assert.strictEqual(c.cost, 200);
+  assert.strictEqual(titanForSide(Side.Khoi)?.unitType, UnitType.Capibara);
+  assert.strictEqual(titanForSide(Side.Nguyen)?.unitType, UnitType.Totoro);
+  assert.strictEqual(titanSpawnX(Side.Khoi), 320);
+  assert.strictEqual(titanSpawnX(Side.Nguyen), 640);
+});
+
+// 36. Titan: hào quang chặn đạn xuyên (test cô lập cơ chế pierceThrough — dựng Father vs
+// titan ĐỊCH; luồng chơi thật chỉ đạt được khi titan vào quân tiếp viện của Máy).
+check('titan: hào quang chặn đạn xuyên — lính sau không trúng', () => {
+  const bases = makeBases();
+  const titan = new Unit(scene, Side.Nguyen, UnitType.Totoro, 500); // đầy máu → aura bật
+  const behind = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 545); // sau titan (phía phải)
+  const units = [titan, behind];
+  // Đạn xuyên Khôi bay sang phải từ x=488.
+  const bolt = new Projectile(null, Side.Khoi, 'straight', 488, 900, 40, 0, 520, 0xffffff, LANE_Y, true, 600);
+  const projectiles = [bolt];
+  assert.strictEqual(titan.auraActive, true);
+  for (let i = 0; i < 10 && bolt.alive; i++) updateProjectiles(projectiles, units, bases, DT);
+  assert.ok(titan.hp < titan.maxHp, 'titan trúng đạn');
+  assert.strictEqual(behind.hp, behind.maxHp, 'lính sau được hào quang che');
+  assert.strictEqual(bolt.alive, false, 'đạn dừng ở titan');
+});
+
+// 37. Titan: hết hào quang (≤2/3 máu) → đạn xuyên qua trúng lính sau.
+check('titan: hết hào quang thì đạn xuyên qua', () => {
+  const bases = makeBases();
+  const titan = new Unit(scene, Side.Nguyen, UnitType.Totoro, 500);
+  titan.hp = titan.maxHp * 0.5; // dưới 2/3
+  updateTitan(titan, [titan], bases, DT, 0); // cập nhật cờ aura → tắt
+  assert.strictEqual(titan.auraActive, false);
+  const behind = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 545);
+  const units = [titan, behind];
+  const bolt = new Projectile(null, Side.Khoi, 'straight', 488, 900, 40, 0, 520, 0xffffff, LANE_Y, true, 600);
+  const projectiles = [bolt];
+  for (let i = 0; i < 20 && bolt.alive; i++) updateProjectiles(projectiles, units, bases, DT);
+  assert.ok(behind.hp < behind.maxHp, 'lính sau bị xuyên trúng');
+});
+
+// 38. Titan chết → hồi 1% maxHp cho toàn quân cùng phe (không hồi phe địch).
+check('titan chết → hồi 1% máu toàn quân phe mình', () => {
+  const bases = makeBases();
+  const economy = new Economy();
+  const titan = new Unit(scene, Side.Khoi, UnitType.Capibara, 200);
+  const ally = new Unit(scene, Side.Khoi, UnitType.BoBinh, 190);
+  ally.hp = 50; // maxHp 100 → sau hồi +1 = 51
+  const foe = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 900);
+  foe.hp = 50;
+  const units = [titan, ally, foe];
+  titan.takeDamage(titan.maxHp); // giết titan
+  updateBattle(units, bases, economy, DT, 1000);
+  assert.ok(Math.abs(ally.hp - 51) < 1e-6, 'đồng minh +1% maxHp (100→51)');
+  assert.strictEqual(foe.hp, 50, 'phe địch không được hồi');
+});
+
+// 39. Titan: ngưỡng hào quang đúng 2/3.
+check('titan: ngưỡng hào quang = 2/3 máu', () => {
+  const bases = makeBases();
+  const titan = new Unit(scene, Side.Khoi, UnitType.Capibara, 300);
+  titan.hp = titan.maxHp * 0.7; // > 2/3
+  updateTitan(titan, [titan], bases, DT, 0);
+  assert.strictEqual(titan.auraActive, true);
+  titan.hp = titan.maxHp * (TITAN_AURA_HP_FRAC - 0.01); // < 2/3
+  updateTitan(titan, [titan], bases, DT, 0);
+  assert.strictEqual(titan.auraActive, false);
 });
 
 console.log(`\n${passed} test cases passed.`);

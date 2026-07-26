@@ -1,4 +1,4 @@
-import { GAME_WIDTH, Side, directionOf, enemyOf } from '../config/game-config';
+import { GAME_WIDTH, Side, directionOf, enemyOf, titanDefByType } from '../config/game-config';
 import type { Base } from '../entities/base';
 import type { Projectile } from '../entities/projectile';
 import type { Unit } from '../entities/unit';
@@ -47,12 +47,20 @@ export function updateProjectiles(
 /**
  * Đạn xuyên (Father): trúng mọi lính địch trên đường (mỗi lính 1 lần), KHÔNG bị cản.
  * Đạn tiếp tục bay; chạm thành địch thì gây sát thương 1 lần rồi dừng.
+ * NGOẠI LỆ: titan địch còn hào quang → gây sát thương rồi DỪNG (không xuyên qua lính sau).
  */
 function pierceThrough(p: Projectile, units: Unit[], enemyBase: Base): void {
   for (const u of units) {
     if (u.side === p.side || u.isDead() || !u.isTargetable() || p.hitUnits.has(u)) continue;
     if (Math.abs(u.x - p.x) <= STRAIGHT_HIT_DIST) {
       u.takeDamage(p.damage);
+      // Hào quang titan chặn: đạn dừng ngay tại titan, không xuyên tới lính phía sau.
+      // Chỉ kích khi titan là ĐỊCH của nguồn đạn xuyên (Father) — hiện Father & titan đều
+      // của người chơi nên chưa gặp nhau; sẽ có tác dụng khi titan vào quân tiếp viện của Máy.
+      if (titanDefByType(u.type) && u.auraActive) {
+        p.kill();
+        return;
+      }
       p.hitUnits.add(u);
     }
   }

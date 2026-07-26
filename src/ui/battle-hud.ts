@@ -15,10 +15,12 @@ import type { Economy } from '../systems/economy';
 import { SpawnManager, unitCost } from '../systems/spawn';
 import type { SpecialAbility } from '../systems/special-ability';
 import { usableHero } from '../systems/hero-shop';
+import { usableTitan } from '../systems/titan-shop';
 import { sound } from '../audio/sound-manager';
 
 interface HudCallbacks {
   onSpawn: (type: UnitType) => void;
+  onSpawnTitan: (type: UnitType) => void;
   onSpecial: () => void;
 }
 
@@ -55,12 +57,13 @@ export class BattleHud {
       this.buttons.set(type, btn);
     });
 
-    // Nút đẻ hero của phe đang chơi — chỉ khi đã mở khoá ở shop hero tương ứng.
+    // Nút đẻ hero/titan của phe đang chơi — chỉ khi đã mở khoá ở shop tương ứng.
+    let slot = PLAYER_SPAWN_ORDER.length;
     const hero = usableHero(playerSide);
     if (hero) {
       const type = hero.unitType;
       const btn = scene.add
-        .text(14 + PLAYER_SPAWN_ORDER.length * 132, GAME_HEIGHT - 46, `${UNITS[type].label}\n${unitCost(mods, playerSide, type)}💰`, {
+        .text(14 + slot * 132, GAME_HEIGHT - 46, `${UNITS[type].label}\n${unitCost(mods, playerSide, type)}💰`, {
           fontSize: '14px',
           color: '#ffffff',
           align: 'center',
@@ -69,6 +72,23 @@ export class BattleHud {
         })
         .setInteractive({ useHandCursor: true });
       btn.on('pointerdown', () => cb.onSpawn(type));
+      this.buttons.set(type, btn);
+      slot++;
+    }
+    // Nút đẻ titan (Capibara/Totoro) — giá/hồi chiêu hiển thị qua vòng update chung.
+    const titan = usableTitan(playerSide);
+    if (titan) {
+      const type = titan.unitType;
+      const btn = scene.add
+        .text(14 + slot * 132, GAME_HEIGHT - 46, `${UNITS[type].label}\n${unitCost(mods, playerSide, type)}💰`, {
+          fontSize: '14px',
+          color: '#ffffff',
+          align: 'center',
+          backgroundColor: '#4d7c0f',
+          padding: { x: 8, y: 8 },
+        })
+        .setInteractive({ useHandCursor: true });
+      btn.on('pointerdown', () => cb.onSpawnTitan(type));
       this.buttons.set(type, btn);
     }
 

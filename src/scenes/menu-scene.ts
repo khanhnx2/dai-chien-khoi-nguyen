@@ -8,6 +8,7 @@ import {
   HEROES,
   Side,
   SIDE_INFO,
+  TITANS,
   TOTAL_STAGES,
 } from '../config/game-config';
 import { getLastSelection, getUnlockedStage } from '../systems/progress';
@@ -79,6 +80,19 @@ export class MenuScene extends Phaser.Scene {
         fill: hero.menuFill,
         fontSize: 13,
         onClick: () => this.scene.start('hero', { heroId: hero.id }),
+      });
+    }
+    // Cửa hàng titan mỗi phe (hàng dưới hero): Capibara (Khôi) / Totoro (Nguyên).
+    for (const titan of TITANS) {
+      clayButton(this, {
+        x: titan.side === Side.Khoi ? 100 : GAME_WIDTH - 100,
+        y: 116,
+        width: 176,
+        height: 38,
+        label: titan.menuLabel,
+        fill: titan.menuFill,
+        fontSize: 13,
+        onClick: () => this.scene.start('titan', { titanId: titan.id }),
       });
     }
 

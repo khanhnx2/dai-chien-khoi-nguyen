@@ -6,8 +6,11 @@ import {
   POPULATION_CAP,
   SideMods,
   Side,
+  TITAN_SPAWN_COOLDOWN_MS,
+  TITAN_SPAWN_COST,
   UNITS,
   UnitType,
+  titanSpawnX,
   uniformSideMods,
 } from '../config/game-config';
 import { Unit } from '../entities/unit';
@@ -60,6 +63,20 @@ export class SpawnManager {
     const unit = new Unit(this.scene, side, type, spawnX(side), m.unitHp[type], m.unitDmg[type]);
     units.push(unit);
     this.readyAt.set(key, now + UNITS[type].spawnCooldownMs * m.unitSpawnCd[type]);
+    return { unit };
+  }
+
+  /** Đẻ titan: trừ 200 vàng + hồi chiêu 8s + cap; rơi từ trời tại 1/3 sân phía quân mình. */
+  trySpawnTitan(side: Side, type: UnitType, economy: Economy, units: Unit[], now: number): SpawnResult {
+    const key = `${side}:${type}`;
+    if (now < (this.readyAt.get(key) ?? 0)) return { reason: 'cooldown' };
+    if (this.countSide(units, side) >= POPULATION_CAP) return { reason: 'cap' };
+    if (!economy.spend(side, TITAN_SPAWN_COST)) return { reason: 'gold' };
+
+    const m = this.mods[side];
+    const unit = new Unit(this.scene, side, type, titanSpawnX(side), m.unitHp[type], m.unitDmg[type], true);
+    units.push(unit);
+    this.readyAt.set(key, now + TITAN_SPAWN_COOLDOWN_MS);
     return { unit };
   }
 

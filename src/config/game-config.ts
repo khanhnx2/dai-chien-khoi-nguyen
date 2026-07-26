@@ -55,6 +55,18 @@ export const ECONOMY = {
   incomePerSecond: 12,
 };
 
+// ---- Titan (Capibara/Totoro): tank người-chơi, rơi từ trời, hào quang chặn đạn xuyên ----
+// Khai báo TRƯỚC UNITS vì titanUnitStats tham chiếu lúc dựng literal.
+export const TITAN_SPAWN_COST = 200; // giá đẻ (vàng)
+export const TITAN_SPAWN_COOLDOWN_MS = 8000; // hồi chiêu đẻ (chống spam)
+export const TITAN_UNLOCK_COST = 120; // giá mở khoá ở shop (xu)
+export const TITAN_AURA_HP_FRAC = 2 / 3; // hp/maxHp > mốc này → hào quang chặn đạn xuyên
+export const TITAN_DEATH_HEAL_FRAC = 0.01; // chết → +1% maxHp mỗi lính cùng phe
+/** X đẻ titan: 1/3 sân phía quân mình (Khôi ≈320, Nguyên ≈640). */
+export function titanSpawnX(side: Side): number {
+  return side === Side.Khoi ? GAME_WIDTH / 3 : (GAME_WIDTH * 2) / 3;
+}
+
 /** 3 loại lính kéo–búa–bao. */
 export enum UnitType {
   BoBinh = 'bo-binh', // cận chiến, rẻ, cân bằng
@@ -63,6 +75,8 @@ export enum UnitType {
   Father = 'father', // TƯỚNG của người chơi (Máy không có), bắn ma thuật xuyên
   Sumo = 'sumo', // HERO phe Khôi: cận chiến nhịp nhanh, lao tới, tự rút lui hồi máu
   Labubu = 'labubu', // HERO phe Nguyên: giống hệt Sumo, khác avatar & tiếng kêu
+  Capibara = 'capibara', // TITAN phe Khôi: tank khổng lồ, rơi từ trời, hào quang chặn đạn xuyên
+  Totoro = 'totoro', // TITAN phe Nguyên: giống hệt Capibara, khác avatar & phe
 }
 
 export interface UnitStats {
@@ -141,6 +155,10 @@ export const UNITS: Record<UnitType, UnitStats> = {
   // sức mạnh = ½; nhịp đánh = ¼ (rất nhanh); giá = ½. Lao tới ×4, tự rút lui hồi máu.
   [UnitType.Sumo]: heroUnitStats('Sumo', 0xf472b6),
   [UnitType.Labubu]: heroUnitStats('Labubu', 0xf9a8d4),
+  // Titan (Capibara/Totoro) — chỉ số GIỐNG NHAU, dẫn xuất Giáp binh: máu ×5, công ×2,
+  // tốc ×½, nhịp đánh ×2 (chậm). Tank khổng lồ, rơi từ trời, hào quang chặn đạn xuyên.
+  [UnitType.Capibara]: titanUnitStats('Capibara', 0x84cc16),
+  [UnitType.Totoro]: titanUnitStats('Totoro', 0x64748b),
 };
 
 /** Chỉ số 1 hero (dùng chung cho mọi hero — chúng giống hệt nhau, chỉ khác nhãn/màu). */
@@ -160,6 +178,23 @@ function heroUnitStats(label: string, color: number): UnitStats {
   };
 }
 
+/** Chỉ số 1 titan (giống hệt nhau) — dẫn xuất Giáp binh (hp280/dmg18/speed40/cd1100). */
+function titanUnitStats(label: string, color: number): UnitStats {
+  return {
+    label,
+    hp: 1400, // = ×5 Giáp binh
+    damage: 36, // = ×2 Giáp binh (18)
+    speed: 20, // = ½ Giáp binh (40)
+    range: 46, // cận chiến = Giáp binh
+    cost: TITAN_SPAWN_COST, // 200 vàng
+    attackCooldownMs: 2200, // = ×2 Giáp binh (1100) → đánh chậm hơn
+    spawnCooldownMs: TITAN_SPAWN_COOLDOWN_MS, // 8s chống spam
+    reward: 120,
+    color,
+    size: 48,
+  };
+}
+
 /** Biểu tượng emoji theo loại lính (đọc rõ kéo–búa–bao; màu phe thể hiện bằng nền tròn). */
 export const UNIT_EMOJI: Record<UnitType, string> = {
   [UnitType.BoBinh]: '🗡️',
@@ -168,6 +203,8 @@ export const UNIT_EMOJI: Record<UnitType, string> = {
   [UnitType.Father]: '🧙',
   [UnitType.Sumo]: '🥋',
   [UnitType.Labubu]: '🧸',
+  [UnitType.Capibara]: '🦫',
+  [UnitType.Totoro]: '🌰',
 };
 
 /** Khoá texture khuôn mặt Father (đã tách nền) — Father dùng ảnh thật thay emoji. */
@@ -178,6 +215,10 @@ export const SUMO_FACE_KEY = 'unit-sumo';
 
 /** Khoá texture ảnh Labubu (đã tách nền) — hero phe Nguyên. */
 export const LABUBU_FACE_KEY = 'unit-labubu';
+
+/** Khoá texture ảnh Capibara/Totoro (đã tách nền) — titan dùng ảnh thật thay emoji. */
+export const CAPIBARA_FACE_KEY = 'unit-capibara';
+export const TOTORO_FACE_KEY = 'unit-totoro';
 
 /** Bảng khắc chế: kéo–búa–bao (Father không tham gia khắc chế). Bộ>Cung, Cung>Giáp, Giáp>Bộ. */
 export const COUNTER_MULTIPLIER = 1.6;
@@ -351,7 +392,7 @@ export interface SideMods {
   income: number;
 }
 
-const ALL_UNIT_TYPES: UnitType[] = [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Father, UnitType.Sumo, UnitType.Labubu];
+const ALL_UNIT_TYPES: UnitType[] = [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Father, UnitType.Sumo, UnitType.Labubu, UnitType.Capibara, UnitType.Totoro];
 
 function unitRecord(value: number): Record<UnitType, number> {
   return {
@@ -361,6 +402,8 @@ function unitRecord(value: number): Record<UnitType, number> {
     [UnitType.Father]: value,
     [UnitType.Sumo]: value,
     [UnitType.Labubu]: value,
+    [UnitType.Capibara]: value,
+    [UnitType.Totoro]: value,
   };
 }
 
@@ -518,5 +561,51 @@ export function heroDefByType(type: UnitType): HeroDef | undefined {
 }
 /** Gộp mọi nâng cấp hero (để computePlayerMods fold 1 lượt). */
 export const ALL_HERO_UPGRADES: MetaUpgradeDef[] = HEROES.flatMap((h) => h.upgrades);
+
+// ============================================================================
+// TITAN — mỗi phe 1 titan (Khôi: Capibara, Nguyên: Totoro). Chỉ số & hành vi GIỐNG
+// HỆT nhau (chỉ khác avatar/phe). KHÔNG có nâng cấp (chỉ mở khoá 1 lần bằng xu).
+// Registry riêng, KHÔNG fold vào HEROES (heroForSide giả định 1 hero/phe).
+// ============================================================================
+
+/** Def "mở khoá" titan (1 cấp, giá cố định) — KHÔNG fold vào mods (perLevel 0). */
+function titanUnlockDef(id: string, label: string): MetaUpgradeDef {
+  return { id, group: 'titan', label, target: 'income', perLevel: 0, maxLevel: 1, baseCost: TITAN_UNLOCK_COST, costGrowth: 1 };
+}
+
+/** Mô tả 1 titan: định danh, phe, avatar, shop, mở khoá (không nâng cấp). */
+export interface TitanDef {
+  id: string;
+  unitType: UnitType;
+  side: Side;
+  faceKey: string;
+  shopTitle: string; // tiêu đề scene shop
+  menuLabel: string; // nhãn nút menu
+  menuFill: number; // màu nút (theo phe)
+  statsGroup: string; // nhóm cho statsLines
+  unlock: MetaUpgradeDef;
+}
+
+export const TITANS: TitanDef[] = [
+  {
+    id: 'capibara', unitType: UnitType.Capibara, side: Side.Khoi, faceKey: CAPIBARA_FACE_KEY,
+    shopTitle: '🦫 CAPIBARA (KHÔI)', menuLabel: '🦫 Capibara', menuFill: SIDE_INFO[Side.Khoi].color,
+    statsGroup: 'Capibara', unlock: titanUnlockDef('capibara.unlock', 'Mở khoá Capibara'),
+  },
+  {
+    id: 'totoro', unitType: UnitType.Totoro, side: Side.Nguyen, faceKey: TOTORO_FACE_KEY,
+    shopTitle: '🌰 TOTORO (NGUYÊN)', menuLabel: '🌰 Totoro', menuFill: SIDE_INFO[Side.Nguyen].color,
+    statsGroup: 'Totoro', unlock: titanUnlockDef('totoro.unlock', 'Mở khoá Totoro'),
+  },
+];
+
+/** Titan của 1 phe (hoặc undefined nếu chưa có). */
+export function titanForSide(side: Side): TitanDef | undefined {
+  return TITANS.find((t) => t.side === side);
+}
+/** Titan theo loại lính (để combat/unit/projectile nhận diện). */
+export function titanDefByType(type: UnitType): TitanDef | undefined {
+  return TITANS.find((t) => t.unitType === type);
+}
 
 export { ALL_UNIT_TYPES };
