@@ -1,10 +1,10 @@
 import type Phaser from 'phaser';
-import { LANE_Y, Side, UnitType, damageMultiplier, directionOf, enemyOf } from '../config/game-config';
+import { LANE_Y, Side, UnitType, damageMultiplier, directionOf, enemyOf, heroDefByType } from '../config/game-config';
 import type { Base } from '../entities/base';
 import type { Unit } from '../entities/unit';
 import { Projectile } from '../entities/projectile';
 import type { Economy } from './economy';
-import { updateSumo } from './hero-behavior';
+import { updateHero } from './hero-behavior';
 import { sound } from '../audio/sound-manager';
 
 const FATHER_BOLT_SPEED = 520;
@@ -44,9 +44,9 @@ export function updateBattle(
   for (const unit of units) {
     if (unit.isDead()) continue;
 
-    // Hero Sumo có máy trạng thái riêng (lao tới / rút lui hồi máu) — xử lý ở module riêng.
-    if (unit.type === UnitType.Sumo) {
-      updateSumo(unit, units, bases, dtSeconds, now);
+    // Hero (Sumo/Labubu) có máy trạng thái riêng (lao tới / rút lui hồi máu).
+    if (heroDefByType(unit.type)) {
+      updateHero(unit, units, bases, dtSeconds, now);
       continue;
     }
 

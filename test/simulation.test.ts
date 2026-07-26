@@ -28,10 +28,12 @@ import { SpecialAbility } from '../src/systems/special-ability';
 import { RoofAttacker } from '../src/entities/roof-attacker';
 import { Projectile } from '../src/entities/projectile';
 import {
-  HERO_UPGRADES,
+  ALL_HERO_UPGRADES,
+  HEROES,
+  HERO_UNLOCK_COST,
   LANE_Y,
   META_UPGRADES,
-  SUMO_UNLOCK_COST,
+  heroForSide,
   SideMods,
   coinsEarned,
   metaFactor,
@@ -40,7 +42,7 @@ import {
 } from '../src/config/game-config';
 import { getUnlockedStage, unlockNextStage } from '../src/systems/progress';
 import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel } from '../src/systems/meta-upgrades';
-import { buyHeroUpgrade, canUseHero, heroUpgradeLevel, isHeroUnlocked, unlockHero } from '../src/systems/hero-shop';
+import { buyHeroUpgrade, heroUpgradeLevel, isHeroUnlocked, unlockHero, usableHero } from '../src/systems/hero-shop';
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
 
 // --- Fake Phaser scene: game object stub chainable, đủ field/method code dùng tới. ---
@@ -516,43 +518,44 @@ check('sumo config: dẫn xuất Bộ binh, không khắc chế', () => {
   assert.strictEqual(uniformSideMods(1).unitHp[UnitType.Sumo], 1, 'record mods đủ khóa Sumo');
 });
 
-// 24. HERO_UPGRADES: ×2 hệ số so với META, tách khỏi shop cũ.
-check('hero upgrades: hệ số ×2, tách khỏi META_UPGRADES', () => {
-  const hpDef = HERO_UPGRADES.find((d) => d.id === 'sumo.hp')!;
-  const costDef = HERO_UPGRADES.find((d) => d.id === 'sumo.cost')!;
+// 24. Hero registry: mỗi phe 1 hero; nâng cấp ×2 hệ số, tách khỏi META_UPGRADES.
+check('hero registry: Khôi=Sumo, Nguyên=Labubu; nâng cấp ×2 tách khỏi shop cũ', () => {
+  assert.strictEqual(heroForSide(Side.Khoi)?.unitType, UnitType.Sumo);
+  assert.strictEqual(heroForSide(Side.Nguyen)?.unitType, UnitType.Labubu);
+  const hpDef = ALL_HERO_UPGRADES.find((d) => d.id === 'sumo.hp')!;
+  const costDef = ALL_HERO_UPGRADES.find((d) => d.id === 'labubu.cost')!;
   const metaHp = META_UPGRADES.find((d) => d.id === 'bo-binh.hp')!;
   const metaCost = META_UPGRADES.find((d) => d.id === 'bo-binh.cost')!;
   assert.ok(Math.abs(hpDef.perLevel - metaHp.perLevel * 2) < 1e-9, 'máu ×2 hệ số');
   assert.ok(Math.abs(costDef.perLevel - metaCost.perLevel * 2) < 1e-9, 'giá ×2 hệ số');
-  assert.ok(HERO_UPGRADES.every((d) => d.group === 'Sumo' && d.unitType === UnitType.Sumo), 'toàn bộ nhóm Sumo');
-  assert.ok(!META_UPGRADES.some((d) => d.id.startsWith('sumo.')), 'HERO tách khỏi META_UPGRADES');
+  assert.ok(!META_UPGRADES.some((d) => d.id.startsWith('sumo.') || d.id.startsWith('labubu.')), 'hero tách khỏi META_UPGRADES');
 });
 
-// 25. Hero shop: mở khoá (idempotent, trừ xu) + nâng cấp ×2 áp đúng vào mods Sumo.
-check('hero shop: mở khoá + nâng cấp Sumo áp vào mods', () => {
-  addCoins(SUMO_UNLOCK_COST * 5);
-  assert.strictEqual(isHeroUnlocked(), false, 'chưa mở khoá lúc đầu');
+// 25. Hero shop: mở khoá (idempotent, trừ xu) + nâng cấp ×2 áp đúng cho hero của phe.
+check('hero shop: mở khoá + nâng cấp Labubu áp vào mods', () => {
+  const labubu = heroForSide(Side.Nguyen)!;
+  addCoins(HERO_UNLOCK_COST * 5);
+  assert.strictEqual(isHeroUnlocked(labubu), false, 'chưa mở khoá lúc đầu');
   const coinsBefore = getCoins();
-  assert.ok(unlockHero(), 'mở khoá khi đủ xu');
-  assert.strictEqual(isHeroUnlocked(), true, 'đã mở khoá');
-  assert.strictEqual(getCoins(), coinsBefore - SUMO_UNLOCK_COST, 'trừ đúng giá mở khoá');
-  assert.strictEqual(unlockHero(), false, 'mở khoá idempotent (maxLevel 1)');
+  assert.ok(unlockHero(labubu), 'mở khoá khi đủ xu');
+  assert.strictEqual(isHeroUnlocked(labubu), true, 'đã mở khoá');
+  assert.strictEqual(getCoins(), coinsBefore - HERO_UNLOCK_COST, 'trừ đúng giá mở khoá');
+  assert.strictEqual(unlockHero(labubu), false, 'mở khoá idempotent (maxLevel 1)');
 
-  const hpDef = HERO_UPGRADES.find((d) => d.id === 'sumo.hp')!;
+  const hpDef = labubu.upgrades.find((d) => d.id === 'labubu.hp')!;
   addCoins(100000);
-  const boBefore = computePlayerMods().unitHp[UnitType.BoBinh];
-  assert.ok(buyHeroUpgrade(hpDef), 'mua nâng cấp máu Sumo');
+  const sumoBefore = computePlayerMods().unitHp[UnitType.Sumo];
+  assert.ok(buyHeroUpgrade(hpDef), 'mua nâng cấp máu Labubu');
   const lvl = heroUpgradeLevel(hpDef);
   const mods = computePlayerMods();
-  assert.ok(Math.abs(mods.unitHp[UnitType.Sumo] - metaFactor(hpDef, lvl)) < 1e-9, 'máu Sumo = metaFactor(cấp)');
-  assert.strictEqual(mods.unitHp[UnitType.BoBinh], boBefore, 'không rò sang Bộ binh');
+  assert.ok(Math.abs(mods.unitHp[UnitType.Labubu] - metaFactor(hpDef, lvl)) < 1e-9, 'máu Labubu = metaFactor(cấp)');
+  assert.strictEqual(mods.unitHp[UnitType.Sumo], sumoBefore, 'không rò sang hero khác');
 });
 
-// 26. canUseHero: chỉ Khôi + đã mở khoá.
-check('hero gating: canUseHero chỉ Khôi + unlocked', () => {
-  assert.strictEqual(canUseHero(Side.Khoi, true), true);
-  assert.strictEqual(canUseHero(Side.Khoi, false), false);
-  assert.strictEqual(canUseHero(Side.Nguyen, true), false);
+// 26. usableHero: trả hero của phe khi đã mở khoá (đã unlock Labubu ở test 25).
+check('hero gating: usableHero theo phe + trạng thái mở khoá', () => {
+  assert.strictEqual(usableHero(Side.Nguyen)?.unitType, UnitType.Labubu, 'Nguyên đã mở khoá → Labubu');
+  assert.strictEqual(usableHero(Side.Khoi), null, 'Khôi chưa mở khoá → null');
 });
 
 // 27. Sumo charge: thấy địch trong tầm nhìn (ngoài tầm đánh) → lao tới ×4.
@@ -601,6 +604,23 @@ check('sumo: còn trước Thành khi rút → vẫn bị nhắm', () => {
   const enemy = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 420);
   assert.strictEqual(sumo.isTargetable(), true, 'chạy về nhưng chưa qua Thành → vẫn dính đòn');
   assert.strictEqual(nearestEnemyUnit(enemy, [sumo, enemy])?.target, sumo, 'địch nhắm được Sumo');
+});
+
+// 31. Labubu (phe Nguyên): dùng chung máy trạng thái hero, hướng ngược Sumo.
+check('labubu: charge sang trái + rút lui sang phải (đối xứng Sumo)', () => {
+  const bases = makeBases();
+  // Charge: Labubu Nguyên thấy địch Khôi trong tầm nhìn → lao SANG TRÁI (về phía địch).
+  const labubu = new Unit(scene, Side.Nguyen, UnitType.Labubu, 760);
+  const enemy = new Unit(scene, Side.Khoi, UnitType.GiapBinh, 440); // dist 320: trong VISION, ngoài range
+  pump([labubu, enemy], bases, new Economy(), 18, 0); // ~0.3s
+  assert.ok(760 - labubu.x > 55, 'Labubu lao sang trái về phía địch');
+
+  // Rút lui: ≤50% máu → chạy SANG PHẢI (về thành Nguyên).
+  const l2 = new Unit(scene, Side.Nguyen, UnitType.Labubu, 500);
+  l2.hp = l2.maxHp * 0.5;
+  pump([l2], bases, new Economy(), 6, 0);
+  assert.strictEqual(l2.retreating, true, 'phải rút lui');
+  assert.ok(l2.x > 500, 'Labubu lùi sang phải (thành Nguyên)');
 });
 
 console.log(`\n${passed} test cases passed.`);

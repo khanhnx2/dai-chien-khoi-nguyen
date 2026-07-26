@@ -5,6 +5,7 @@ import {
   DIFFICULTIES,
   Difficulty,
   FACE_KEY,
+  HEROES,
   Side,
   SIDE_INFO,
   TOTAL_STAGES,
@@ -66,18 +67,20 @@ export class MenuScene extends Phaser.Scene {
       fontSize: 17,
       onClick: () => this.scene.start('upgrade'),
     });
-    // Cửa hàng Hero (Sumo) — riêng phe Khôi. Xếp thẳng dưới nút Nâng cấp, thu hẹp để
-    // không đè chữ tiêu đề (tiêu đề canh giữa, mép trái ~x217).
-    clayButton(this, {
-      x: 100,
-      y: 74,
-      width: 176,
-      height: 38,
-      label: '🍜 Quán Phở Anh Khôi',
-      fill: COLORS.red,
-      fontSize: 13,
-      onClick: () => this.scene.start('hero'),
-    });
+    // Cửa hàng hero mỗi phe: Khôi (Sumo) bên trái dưới Nâng cấp; Nguyên (Labubu) bên
+    // phải. Thu hẹp + né mép chữ tiêu đề (canh giữa, ~x217–743). Luôn hiện để mua/nâng cấp.
+    for (const hero of HEROES) {
+      clayButton(this, {
+        x: hero.side === Side.Khoi ? 100 : GAME_WIDTH - 100,
+        y: 74,
+        width: 176,
+        height: 38,
+        label: hero.menuLabel,
+        fill: hero.menuFill,
+        fontSize: 13,
+        onClick: () => this.scene.start('hero', { heroId: hero.id }),
+      });
+    }
 
     this.buildDifficultyRow();
     this.buildSideRow();

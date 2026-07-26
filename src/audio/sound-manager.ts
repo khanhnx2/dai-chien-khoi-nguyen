@@ -2,7 +2,7 @@
 // Singleton `sound` để mọi hệ thống (combat, roof, scene) gọi được.
 // AudioContext chỉ chạy sau thao tác người dùng (chính sách trình duyệt) — tự resume khi phát.
 
-type Sfx = 'spawn' | 'special' | 'win' | 'lose' | 'slash' | 'arrow' | 'egg' | 'water' | 'magic' | 'bark';
+export type Sfx = 'spawn' | 'special' | 'win' | 'lose' | 'slash' | 'arrow' | 'egg' | 'water' | 'magic' | 'bark' | 'labubu';
 
 const THROTTLE_MS = 55; // chống trùng lặp SFX cùng loại quá dày
 
@@ -56,7 +56,25 @@ class SoundManager {
       case 'water': return this.noise(0.13, 3200, 0.18); // bắn nước: spray
       case 'magic': return this.magic(); // bắn phép: sparkle
       case 'bark': return this.bark(); // Sumo (chó) đánh: sủa "gắu-gắu"
+      case 'labubu': return this.labubu(); // Labubu đánh: kêu chút chít cao vút
     }
+  }
+
+  /** Tiếng Labubu "chút-chít": 2 nhịp sine cao vút rướn lên (đối lập tiếng sủa trầm). */
+  private labubu(): void {
+    [0, 0.1].forEach((delay) => {
+      const n = this.osc();
+      if (!n) return;
+      const t = n.ctx.currentTime + delay;
+      n.o.type = 'sine';
+      n.o.frequency.setValueAtTime(760, t);
+      n.o.frequency.exponentialRampToValueAtTime(1500, t + 0.07);
+      n.g.gain.setValueAtTime(0.0001, t);
+      n.g.gain.linearRampToValueAtTime(0.16, t + 0.01);
+      n.g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+      n.o.start(t);
+      n.o.stop(t + 0.1);
+    });
   }
 
   /** Tiếng chó sủa "gắu-gắu": 2 nhịp sawtooth hạ cao độ nhanh + chút noise cho sắc. */

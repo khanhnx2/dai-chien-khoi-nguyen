@@ -3,13 +3,13 @@ import {
   FATHER_FACE_KEY,
   LANE_Y,
   SIDE_INFO,
-  SUMO_FACE_KEY,
   Side,
   UNITS,
   UNIT_EMOJI,
   UnitType,
   baseXOf,
   directionOf,
+  heroDefByType,
   type UnitStats,
 } from '../config/game-config';
 
@@ -27,8 +27,8 @@ export class Unit {
   lastAttackAt = 0;
   /** Hero (Sumo): đang rút lui về hậu phương hồi máu? */
   retreating = false;
-  /** Hero (Sumo): thời điểm (ms) sủa gần nhất — tiết chế tiếng sủa. */
-  lastBarkAt = 0;
+  /** Hero: thời điểm (ms) kêu gần nhất — tiết chế tiếng kêu. */
+  lastCryAt = 0;
 
   private readonly scene: Phaser.Scene;
   private readonly disc: Phaser.GameObjects.Arc;
@@ -47,8 +47,8 @@ export class Unit {
 
     const y = LANE_Y - this.stats.size / 2;
     this.disc = scene.add.circle(startX, y, this.stats.size / 2 + 2, SIDE_INFO[side].color).setAlpha(0.9);
-    // Father & Sumo dùng ảnh thật; các lính khác dùng emoji.
-    const faceKey = type === UnitType.Father ? FATHER_FACE_KEY : type === UnitType.Sumo ? SUMO_FACE_KEY : null;
+    // Father & các hero (Sumo/Labubu) dùng ảnh thật; các lính khác dùng emoji.
+    const faceKey = type === UnitType.Father ? FATHER_FACE_KEY : (heroDefByType(type)?.faceKey ?? null);
     this.icon = faceKey
       ? scene.add.image(startX, y, faceKey).setDisplaySize(this.stats.size, this.stats.size)
       : scene.add.text(startX, y, UNIT_EMOJI[type], { fontSize: `${this.stats.size - 6}px` }).setOrigin(0.5);

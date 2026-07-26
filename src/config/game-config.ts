@@ -61,7 +61,8 @@ export enum UnitType {
   CungThu = 'cung-thu', // bắn xa, giòn
   GiapBinh = 'giap-binh', // trâu, chậm, đắt
   Father = 'father', // TƯỚNG của người chơi (Máy không có), bắn ma thuật xuyên
-  Sumo = 'sumo', // HERO riêng phe Khôi: cận chiến nhịp nhanh, lao tới, tự rút lui hồi máu
+  Sumo = 'sumo', // HERO phe Khôi: cận chiến nhịp nhanh, lao tới, tự rút lui hồi máu
+  Labubu = 'labubu', // HERO phe Nguyên: giống hệt Sumo, khác avatar & tiếng kêu
 }
 
 export interface UnitStats {
@@ -136,10 +137,16 @@ export const UNITS: Record<UnitType, UnitStats> = {
     size: 34,
     piercing: true,
   },
-  // Sumo — HERO phe Khôi. Dẫn xuất từ Bộ binh: máu & tốc = Bộ binh; sức mạnh = ½;
-  // nhịp đánh = ¼ (rất nhanh); giá = ½. Lao tới ×4 khi thấy địch, tự rút lui hồi máu.
-  [UnitType.Sumo]: {
-    label: 'Sumo',
+  // Hero (Sumo/Labubu) — chỉ số GIỐNG NHAU, dẫn xuất Bộ binh: máu & tốc = Bộ binh;
+  // sức mạnh = ½; nhịp đánh = ¼ (rất nhanh); giá = ½. Lao tới ×4, tự rút lui hồi máu.
+  [UnitType.Sumo]: heroUnitStats('Sumo', 0xf472b6),
+  [UnitType.Labubu]: heroUnitStats('Labubu', 0xf9a8d4),
+};
+
+/** Chỉ số 1 hero (dùng chung cho mọi hero — chúng giống hệt nhau, chỉ khác nhãn/màu). */
+function heroUnitStats(label: string, color: number): UnitStats {
+  return {
+    label,
     hp: 100, // = Bộ binh
     damage: 6, // = ½ Bộ binh (12)
     speed: 62, // = Bộ binh
@@ -148,10 +155,10 @@ export const UNITS: Record<UnitType, UnitStats> = {
     attackCooldownMs: 175, // = ¼ Bộ binh (700)
     spawnCooldownMs: 1500,
     reward: 10,
-    color: 0xf472b6,
+    color,
     size: 30,
-  },
-};
+  };
+}
 
 /** Biểu tượng emoji theo loại lính (đọc rõ kéo–búa–bao; màu phe thể hiện bằng nền tròn). */
 export const UNIT_EMOJI: Record<UnitType, string> = {
@@ -160,6 +167,7 @@ export const UNIT_EMOJI: Record<UnitType, string> = {
   [UnitType.GiapBinh]: '🛡️',
   [UnitType.Father]: '🧙',
   [UnitType.Sumo]: '🥋',
+  [UnitType.Labubu]: '🧸',
 };
 
 /** Khoá texture khuôn mặt Father (đã tách nền) — Father dùng ảnh thật thay emoji. */
@@ -167,6 +175,9 @@ export const FATHER_FACE_KEY = 'unit-father';
 
 /** Khoá texture ảnh Sumo (đã tách nền) — Sumo dùng ảnh thật thay emoji. */
 export const SUMO_FACE_KEY = 'unit-sumo';
+
+/** Khoá texture ảnh Labubu (đã tách nền) — hero phe Nguyên. */
+export const LABUBU_FACE_KEY = 'unit-labubu';
 
 /** Bảng khắc chế: kéo–búa–bao (Father không tham gia khắc chế). Bộ>Cung, Cung>Giáp, Giáp>Bộ. */
 export const COUNTER_MULTIPLIER = 1.6;
@@ -332,7 +343,7 @@ export interface SideMods {
   income: number;
 }
 
-const ALL_UNIT_TYPES: UnitType[] = [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Father, UnitType.Sumo];
+const ALL_UNIT_TYPES: UnitType[] = [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Father, UnitType.Sumo, UnitType.Labubu];
 
 function unitRecord(value: number): Record<UnitType, number> {
   return {
@@ -341,6 +352,7 @@ function unitRecord(value: number): Record<UnitType, number> {
     [UnitType.GiapBinh]: value,
     [UnitType.Father]: value,
     [UnitType.Sumo]: value,
+    [UnitType.Labubu]: value,
   };
 }
 
@@ -419,40 +431,84 @@ export function metaFactor(def: MetaUpgradeDef, level: number): number {
 }
 
 // ============================================================================
-// HERO (Sumo) — hằng số hành vi + nâng cấp riêng (×2 hệ số) + mở khoá.
-// Nâng cấp hero TÁCH khỏi META_UPGRADES để không lọt vào shop NÂNG CẤP cũ;
-// scene "Quán Phở Anh Khôi" render riêng list này.
+// HERO — mỗi phe 1 hero (Khôi: Sumo, Nguyên: Labubu). Hành vi & chỉ số GIỐNG HỆT
+// nhau (chỉ khác avatar/tiếng kêu/phe). Registry HEROES cho phép thêm hero về sau.
+// Nâng cấp hero TÁCH khỏi META_UPGRADES (không lọt shop NÂNG CẤP cũ); mỗi hero có
+// scene shop riêng render list của mình.
 // ============================================================================
 
-/** Tầm nhìn: có địch trong khoảng này (ngoài tầm đánh) → Sumo lao tới ×4. */
-export const SUMO_VISION_RANGE = 450;
+/** Tầm nhìn: có địch trong khoảng này (ngoài tầm đánh) → hero lao tới ×4. */
+export const HERO_VISION_RANGE = 450;
 /** Hệ số tăng tốc khi lao tới. */
-export const SUMO_CHARGE_MULT = 4;
-/** Ngưỡng máu (tỉ lệ) Sumo bắt đầu rút lui hồi máu. */
-export const SUMO_RETREAT_HP_FRAC = 0.5;
+export const HERO_CHARGE_MULT = 4;
+/** Ngưỡng máu (tỉ lệ) hero bắt đầu rút lui hồi máu. */
+export const HERO_RETREAT_HP_FRAC = 0.5;
 /** Hệ số tốc độ khi chạy về hậu phương. */
-export const SUMO_RETREAT_SPEED_MULT = 4;
+export const HERO_RETREAT_SPEED_MULT = 4;
 /** Tốc hồi máu mỗi giây (tỉ lệ máu tối đa) khi ở hậu phương an toàn. */
-export const SUMO_HEAL_FRAC_PER_SEC = 0.25;
-/** Giãn cách tối thiểu giữa 2 tiếng sủa (ms) — tránh sủa liên thanh. */
-export const SUMO_BARK_THROTTLE_MS = 500;
-/** Giá xu mở khoá Sumo (1 lần, vĩnh viễn). */
-export const SUMO_UNLOCK_COST = 60;
+export const HERO_HEAL_FRAC_PER_SEC = 0.25;
+/** Giãn cách tối thiểu giữa 2 tiếng kêu (ms) — tránh kêu liên thanh. */
+export const HERO_CRY_THROTTLE_MS = 500;
+/** Giá xu mở khoá 1 hero (1 lần, vĩnh viễn). */
+export const HERO_UNLOCK_COST = 60;
 
 const HERO_INC = 0.12; // +12%/cấp (×2 quân thường) — máu, sát thương
 const HERO_RED = -0.06; // -6%/cấp (×2 quân thường) — giá, hồi chiêu
 
-/** Nâng cấp Sumo: cùng bộ 4 chỉ số như troop nhưng hệ số ×2. */
-export const HERO_UPGRADES: MetaUpgradeDef[] = [
-  { id: 'sumo.hp', group: 'Sumo', label: 'Máu', target: 'unitHp', unitType: UnitType.Sumo, perLevel: HERO_INC, maxLevel: MAX_LV, baseCost: 8, costGrowth: 1.4 },
-  { id: 'sumo.dmg', group: 'Sumo', label: 'Sát thương', target: 'unitDmg', unitType: UnitType.Sumo, perLevel: HERO_INC, maxLevel: MAX_LV, baseCost: 8, costGrowth: 1.4 },
-  { id: 'sumo.spawncd', group: 'Sumo', label: 'Giảm hồi chiêu đẻ', target: 'unitSpawnCd', unitType: UnitType.Sumo, perLevel: HERO_RED, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.45 },
-  { id: 'sumo.cost', group: 'Sumo', label: 'Giảm giá mua', target: 'unitCost', unitType: UnitType.Sumo, perLevel: HERO_RED, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.45 },
+/** 4 nâng cấp hero (×2 hệ số troop). id = `${unitType}.xxx` để lưu localStorage ổn định. */
+function heroUpgradeDefs(unitType: UnitType, group: string): MetaUpgradeDef[] {
+  return [
+    { id: `${unitType}.hp`, group, label: 'Máu', target: 'unitHp', unitType, perLevel: HERO_INC, maxLevel: MAX_LV, baseCost: 8, costGrowth: 1.4 },
+    { id: `${unitType}.dmg`, group, label: 'Sát thương', target: 'unitDmg', unitType, perLevel: HERO_INC, maxLevel: MAX_LV, baseCost: 8, costGrowth: 1.4 },
+    { id: `${unitType}.spawncd`, group, label: 'Giảm hồi chiêu đẻ', target: 'unitSpawnCd', unitType, perLevel: HERO_RED, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.45 },
+    { id: `${unitType}.cost`, group, label: 'Giảm giá mua', target: 'unitCost', unitType, perLevel: HERO_RED, maxLevel: MAX_LV, baseCost: 10, costGrowth: 1.45 },
+  ];
+}
+
+/** Def "mở khoá" hero (1 cấp, giá cố định) — KHÔNG fold vào mods (perLevel 0). */
+function heroUnlockDef(id: string, label: string): MetaUpgradeDef {
+  return { id, group: 'hero', label, target: 'income', perLevel: 0, maxLevel: 1, baseCost: HERO_UNLOCK_COST, costGrowth: 1 };
+}
+
+/** Mô tả 1 hero: định danh, phe, avatar, shop, tiếng kêu, mở khoá + nâng cấp. */
+export interface HeroDef {
+  id: string;
+  unitType: UnitType;
+  side: Side;
+  faceKey: string;
+  shopTitle: string; // tiêu đề scene shop
+  menuLabel: string; // nhãn nút menu
+  menuFill: number; // màu nút (theo phe)
+  statsGroup: string; // nhóm cho statsLines/nâng cấp
+  sfx: string; // SFX tiếng kêu ('bark' | 'labubu')
+  unlock: MetaUpgradeDef;
+  upgrades: MetaUpgradeDef[];
+}
+
+export const HEROES: HeroDef[] = [
+  {
+    id: 'sumo', unitType: UnitType.Sumo, side: Side.Khoi, faceKey: SUMO_FACE_KEY,
+    shopTitle: '🍜 QUÁN PHỞ ANH KHÔI', menuLabel: '🍜 Quán Phở Anh Khôi', menuFill: SIDE_INFO[Side.Khoi].color,
+    statsGroup: 'Sumo', sfx: 'bark',
+    unlock: heroUnlockDef('sumo.unlock', 'Mở khoá Sumo'), upgrades: heroUpgradeDefs(UnitType.Sumo, 'Sumo'),
+  },
+  {
+    id: 'labubu', unitType: UnitType.Labubu, side: Side.Nguyen, faceKey: LABUBU_FACE_KEY,
+    shopTitle: '🧸 TẠP HOÁ THẢO NGUYÊN', menuLabel: '🧸 Tạp hoá Thảo Nguyên', menuFill: SIDE_INFO[Side.Nguyen].color,
+    statsGroup: 'Labubu', sfx: 'labubu',
+    unlock: heroUnlockDef('labubu.unlock', 'Mở khoá Labubu'), upgrades: heroUpgradeDefs(UnitType.Labubu, 'Labubu'),
+  },
 ];
 
-/** Def "mở khoá" Sumo (1 cấp, giá cố định) — KHÔNG fold vào mods (perLevel 0). */
-export const SUMO_UNLOCK: MetaUpgradeDef = {
-  id: 'sumo.unlock', group: 'Sumo', label: 'Mở khoá Sumo', target: 'income', perLevel: 0, maxLevel: 1, baseCost: SUMO_UNLOCK_COST, costGrowth: 1,
-};
+/** Hero của 1 phe (hoặc undefined nếu phe đó chưa có hero). */
+export function heroForSide(side: Side): HeroDef | undefined {
+  return HEROES.find((h) => h.side === side);
+}
+/** Hero theo loại lính (để combat/unit nhận diện). */
+export function heroDefByType(type: UnitType): HeroDef | undefined {
+  return HEROES.find((h) => h.unitType === type);
+}
+/** Gộp mọi nâng cấp hero (để computePlayerMods fold 1 lượt). */
+export const ALL_HERO_UPGRADES: MetaUpgradeDef[] = HEROES.flatMap((h) => h.upgrades);
 
 export { ALL_UNIT_TYPES };

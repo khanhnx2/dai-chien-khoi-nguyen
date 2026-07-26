@@ -1,5 +1,5 @@
 import {
-  HERO_UPGRADES,
+  ALL_HERO_UPGRADES,
   META_UPGRADES,
   MetaUpgradeDef,
   SideMods,
@@ -103,6 +103,6 @@ export function computePlayerMods(): SideMods {
     }
   };
   for (const def of META_UPGRADES) apply(def);
-  for (const def of HERO_UPGRADES) apply(def);
+  for (const def of ALL_HERO_UPGRADES) apply(def);
   return mods;
 }

@@ -16,6 +16,7 @@ const GROUP_UNIT: Record<string, UnitType> = {
   'Giáp binh': UnitType.GiapBinh,
   Father: UnitType.Father,
   Sumo: UnitType.Sumo,
+  Labubu: UnitType.Labubu,
 };
 
 /** Hệ số → phần trăm dễ đọc (1.18 → "+18%", 0.94 → "-6%"). */
