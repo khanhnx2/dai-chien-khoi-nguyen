@@ -667,6 +667,20 @@ check('tiếp viện: màn 30 kích 1 lần → 12 lính (3 mỗi loại + hero 
   assert.strictEqual(units.length, 12);
 });
 
+// 34b. Màn ≥40: đợt tiếp viện kèm đúng 1 Titan phe Máy.
+check('tiếp viện: màn 40 kèm 1 Titan (4×4 lính + 1 titan = 17)', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ReinforcementManager();
+  const aiSide = Side.Nguyen; // titan = Totoro
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.3;
+  assert.strictEqual(mgr.update(40, aiSide, bases, spawn, units), true);
+  assert.strictEqual(units.length, 17, '4 × 4 loại lính + 1 titan');
+  assert.strictEqual(units.filter((u) => u.type === UnitType.Totoro).length, 1, 'đúng 1 Totoro');
+  assert.ok(units.every((u) => u.side === aiSide), 'tất cả phe Máy');
+});
+
 // 34. Màn <30: không tiếp viện dù thành Máy kiệt máu.
 check('tiếp viện: màn 20 không kích dù thành Máy ≤50%', () => {
   const bases = makeBases();

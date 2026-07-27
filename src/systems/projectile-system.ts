@@ -55,8 +55,8 @@ function pierceThrough(p: Projectile, units: Unit[], enemyBase: Base): void {
     if (Math.abs(u.x - p.x) <= STRAIGHT_HIT_DIST) {
       u.takeDamage(p.damage);
       // Hào quang titan chặn: đạn dừng ngay tại titan, không xuyên tới lính phía sau.
-      // Chỉ kích khi titan là ĐỊCH của nguồn đạn xuyên (Father) — hiện Father & titan đều
-      // của người chơi nên chưa gặp nhau; sẽ có tác dụng khi titan vào quân tiếp viện của Máy.
+      // Kích khi titan là ĐỊCH của nguồn đạn xuyên (Father người chơi) — xảy ra từ màn ≥40
+      // khi Máy có Titan trong quân tiếp viện.
       if (titanDefByType(u.type) && u.auraActive) {
         p.kill();
         return;
