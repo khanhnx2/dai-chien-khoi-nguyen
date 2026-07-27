@@ -6,9 +6,11 @@ import {
   HERO_RETREAT_SPEED_MULT,
   HERO_VISION_RANGE,
   Side,
+  TITAN_HERO_DMG_TAKEN_FRAC,
   directionOf,
   enemyOf,
   heroDefByType,
+  titanDefByType,
 } from '../config/game-config';
 import type { Base } from '../entities/base';
 import type { Unit } from '../entities/unit';
@@ -54,7 +56,11 @@ export function updateHero(
 
   if (attackUnit && nearest) {
     if (ready) {
-      nearest.target.takeDamage(unit.attackDamage); // hero không khắc chế → không nhân hệ số
+      // Hero không khắc chế → không nhân hệ số; RIÊNG titan chỉ hứng ¼ sát thương từ hero.
+      const dmg = titanDefByType(nearest.target.type)
+        ? unit.attackDamage * TITAN_HERO_DMG_TAKEN_FRAC
+        : unit.attackDamage;
+      nearest.target.takeDamage(dmg);
       unit.lastAttackAt = now;
       unit.attackFx(nearest.target.x);
       cry(unit, now);

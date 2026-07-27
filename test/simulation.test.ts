@@ -44,7 +44,8 @@ import { getUnlockedStage, unlockNextStage } from '../src/systems/progress';
 import { ReinforcementManager } from '../src/systems/reinforcements';
 import { REINFORCE_HP_FRAC, reinforcementCount } from '../src/config/game-config';
 import { updateTitan } from '../src/systems/titan-behavior';
-import { titanForSide, titanSpawnX, TITAN_AURA_HP_FRAC } from '../src/config/game-config';
+import { updateHero } from '../src/systems/hero-behavior';
+import { titanForSide, titanSpawnX, TITAN_AURA_HP_FRAC, TITAN_HERO_DMG_TAKEN_FRAC, TITANS } from '../src/config/game-config';
 import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel } from '../src/systems/meta-upgrades';
 import { buyHeroUpgrade, heroUpgradeLevel, isHeroUnlocked, unlockHero, usableHero } from '../src/systems/hero-shop';
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
@@ -749,6 +750,31 @@ check('titan: ngưỡng hào quang = 2/3 máu', () => {
   titan.hp = titan.maxHp * (TITAN_AURA_HP_FRAC - 0.01); // < 2/3
   updateTitan(titan, [titan], bases, DT, 0);
   assert.strictEqual(titan.auraActive, false);
+});
+
+// 40. Titan chỉ hứng ¼ sát thương khi bị hero (Sumo/Labubu) đánh.
+check('titan: hứng ¼ sát thương từ hero', () => {
+  const bases = makeBases();
+  const sumo = new Unit(scene, Side.Khoi, UnitType.Sumo, 500); // dmg 6
+  const titan = new Unit(scene, Side.Nguyen, UnitType.Totoro, 520); // trong tầm 42
+  updateHero(sumo, [sumo, titan], bases, DT, 1000); // Sumo đánh 1 đòn
+  const expected = titan.maxHp - sumo.attackDamage * TITAN_HERO_DMG_TAKEN_FRAC;
+  assert.ok(Math.abs(titan.hp - expected) < 1e-6, `titan chỉ mất ¼ dmg (${sumo.attackDamage}→${sumo.attackDamage * 0.25})`);
+
+  // Đối chứng: hero đánh lính thường → full dmg.
+  const grunt = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 520);
+  const sumo2 = new Unit(scene, Side.Khoi, UnitType.Sumo, 500);
+  updateHero(sumo2, [sumo2, grunt], bases, DT, 1000);
+  assert.ok(Math.abs(grunt.hp - (grunt.maxHp - sumo2.attackDamage)) < 1e-6, 'lính thường ăn full dmg');
+});
+
+// 41. Nâng cấp titan fold vào computePlayerMods (máu titan tăng theo cấp).
+check('titan: nâng cấp máu fold vào mods', () => {
+  const hpDef = TITANS[0].upgrades.find((d) => d.target === 'unitHp')!;
+  assert.strictEqual(computePlayerMods().unitHp[UnitType.Capibara], 1); // chưa mua
+  addCoins(9999);
+  assert.strictEqual(buyUpgrade(hpDef), true);
+  assert.ok(computePlayerMods().unitHp[UnitType.Capibara] > 1, 'máu Capibara tăng sau nâng cấp');
 });
 
 console.log(`\n${passed} test cases passed.`);

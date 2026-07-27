@@ -62,6 +62,7 @@ export const TITAN_SPAWN_COOLDOWN_MS = 8000; // hồi chiêu đẻ (chống spam
 export const TITAN_UNLOCK_COST = 120; // giá mở khoá ở shop (xu)
 export const TITAN_AURA_HP_FRAC = 2 / 3; // hp/maxHp > mốc này → hào quang chặn đạn xuyên
 export const TITAN_DEATH_HEAL_FRAC = 0.01; // chết → +1% maxHp mỗi lính cùng phe
+export const TITAN_HERO_DMG_TAKEN_FRAC = 0.25; // titan chỉ hứng ¼ sát thương từ hero (Sumo/Labubu)
 /** X đẻ titan: 1/3 sân phía quân mình (Khôi ≈320, Nguyên ≈640). */
 export function titanSpawnX(side: Side): number {
   return side === Side.Khoi ? GAME_WIDTH / 3 : (GAME_WIDTH * 2) / 3;
@@ -564,7 +565,7 @@ export const ALL_HERO_UPGRADES: MetaUpgradeDef[] = HEROES.flatMap((h) => h.upgra
 
 // ============================================================================
 // TITAN — mỗi phe 1 titan (Khôi: Capibara, Nguyên: Totoro). Chỉ số & hành vi GIỐNG
-// HỆT nhau (chỉ khác avatar/phe). KHÔNG có nâng cấp (chỉ mở khoá 1 lần bằng xu).
+// HỆT nhau (chỉ khác avatar/phe). Mở khoá 1 lần bằng xu + 4 nâng cấp (như hero).
 // Registry riêng, KHÔNG fold vào HEROES (heroForSide giả định 1 hero/phe).
 // ============================================================================
 
@@ -573,7 +574,17 @@ function titanUnlockDef(id: string, label: string): MetaUpgradeDef {
   return { id, group: 'titan', label, target: 'income', perLevel: 0, maxLevel: 1, baseCost: TITAN_UNLOCK_COST, costGrowth: 1 };
 }
 
-/** Mô tả 1 titan: định danh, phe, avatar, shop, mở khoá (không nâng cấp). */
+/** 4 nâng cấp titan (dùng chung hệ số ×2 troop như hero). id `${unitType}.xxx` ổn định localStorage. */
+function titanUpgradeDefs(unitType: UnitType, group: string): MetaUpgradeDef[] {
+  return [
+    { id: `${unitType}.hp`, group, label: 'Máu', target: 'unitHp', unitType, perLevel: HERO_INC, maxLevel: MAX_LV, baseCost: 12, costGrowth: 1.45 },
+    { id: `${unitType}.dmg`, group, label: 'Sát thương', target: 'unitDmg', unitType, perLevel: HERO_INC, maxLevel: MAX_LV, baseCost: 12, costGrowth: 1.45 },
+    { id: `${unitType}.spawncd`, group, label: 'Giảm hồi chiêu đẻ', target: 'unitSpawnCd', unitType, perLevel: HERO_RED, maxLevel: MAX_LV, baseCost: 12, costGrowth: 1.45 },
+    { id: `${unitType}.cost`, group, label: 'Giảm giá đẻ', target: 'unitCost', unitType, perLevel: HERO_RED, maxLevel: MAX_LV, baseCost: 12, costGrowth: 1.45 },
+  ];
+}
+
+/** Mô tả 1 titan: định danh, phe, avatar, shop, mở khoá + nâng cấp. */
 export interface TitanDef {
   id: string;
   unitType: UnitType;
@@ -584,6 +595,7 @@ export interface TitanDef {
   menuFill: number; // màu nút (theo phe)
   statsGroup: string; // nhóm cho statsLines
   unlock: MetaUpgradeDef;
+  upgrades: MetaUpgradeDef[];
 }
 
 export const TITANS: TitanDef[] = [
@@ -591,11 +603,13 @@ export const TITANS: TitanDef[] = [
     id: 'capibara', unitType: UnitType.Capibara, side: Side.Khoi, faceKey: CAPIBARA_FACE_KEY,
     shopTitle: '🦫 CAPIBARA (KHÔI)', menuLabel: '🦫 Capibara', menuFill: SIDE_INFO[Side.Khoi].color,
     statsGroup: 'Capibara', unlock: titanUnlockDef('capibara.unlock', 'Mở khoá Capibara'),
+    upgrades: titanUpgradeDefs(UnitType.Capibara, 'Capibara'),
   },
   {
     id: 'totoro', unitType: UnitType.Totoro, side: Side.Nguyen, faceKey: TOTORO_FACE_KEY,
     shopTitle: '🌰 TOTORO (NGUYÊN)', menuLabel: '🌰 Totoro', menuFill: SIDE_INFO[Side.Nguyen].color,
     statsGroup: 'Totoro', unlock: titanUnlockDef('totoro.unlock', 'Mở khoá Totoro'),
+    upgrades: titanUpgradeDefs(UnitType.Totoro, 'Totoro'),
   },
 ];
 
@@ -607,5 +621,7 @@ export function titanForSide(side: Side): TitanDef | undefined {
 export function titanDefByType(type: UnitType): TitanDef | undefined {
   return TITANS.find((t) => t.unitType === type);
 }
+/** Gộp mọi nâng cấp titan (để computePlayerMods fold 1 lượt). */
+export const ALL_TITAN_UPGRADES: MetaUpgradeDef[] = TITANS.flatMap((t) => t.upgrades);
 
 export { ALL_UNIT_TYPES };

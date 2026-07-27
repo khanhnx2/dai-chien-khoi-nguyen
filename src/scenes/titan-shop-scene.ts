@@ -4,7 +4,7 @@ import { getCoins, nextCost } from '../systems/meta-upgrades';
 import { isTitanUnlocked, unlockTitan } from '../systems/titan-shop';
 import { COLORS, FONT, drawGradientBg } from '../ui/theme';
 import { avatarFrame, clayButton } from '../ui/ui-kit';
-import { buildStatsPanel } from '../ui/upgrade-row';
+import { buildStatsPanel, buildUpgradeRow } from '../ui/upgrade-row';
 import { sound } from '../audio/sound-manager';
 
 interface TitanSceneData {
@@ -65,11 +65,12 @@ export class TitanShopScene extends Phaser.Scene {
     if (isTitanUnlocked(this.titan)) {
       this.content.add(
         this.add
-          .text(GAME_WIDTH / 2, 300, `✅ Đã mở khoá — đẻ ${this.titan.statsGroup} trong trận (200 vàng).`, {
-            fontFamily: FONT, fontSize: '16px', color: COLORS.textGold,
+          .text(GAME_WIDTH / 2, 260, `✅ Đã mở khoá — đẻ trong trận (200 vàng). Nâng cấp:`, {
+            fontFamily: FONT, fontSize: '15px', color: COLORS.textGold,
           })
           .setOrigin(0.5),
       );
+      this.titan.upgrades.forEach((def, i) => buildUpgradeRow(this, this.content, def, 300 + i * 60, () => this.rebuild()));
       return;
     }
     this.buildUnlockButton();
