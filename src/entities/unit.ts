@@ -14,6 +14,7 @@ import {
   titanDefByType,
   type UnitStats,
 } from '../config/game-config';
+import { showDamagePopup } from '../ui/damage-popup';
 
 /** Lính 1 phe: nền tròn màu phe + emoji loại lính (kéo–búa–bao), có máu riêng. */
 export class Unit {
@@ -40,6 +41,8 @@ export class Unit {
   private readonly disc: Phaser.GameObjects.Arc;
   private readonly icon: Phaser.GameObjects.Text | Phaser.GameObjects.Image;
   private readonly hpBar: Phaser.GameObjects.Rectangle;
+  /** Số máu hiện tại hiển thị trên đầu. */
+  private readonly hpText: Phaser.GameObjects.Text;
   /** Titan: vòng hào quang (chỉ tạo cho titan). */
   private readonly aura?: Phaser.GameObjects.Arc;
 
@@ -69,11 +72,15 @@ export class Unit {
     this.hpBar = scene.add
       .rectangle(startX - this.stats.size / 2, y - this.stats.size / 2 - 6, this.stats.size, 4, 0x22c55e)
       .setOrigin(0, 0.5);
+    // Số máu trên đầu (trên thanh máu).
+    this.hpText = scene.add
+      .text(startX, y - this.stats.size / 2 - 15, `${Math.ceil(this.hp)}`, { fontSize: '10px', color: '#ffffff', stroke: '#000000', strokeThickness: 2 })
+      .setOrigin(0.5);
 
     // Titan: rơi từ trời — dời mọi phần lên cao rồi tween về vị trí gốc (nảy nhẹ).
     if (drop) {
       const DROP_HEIGHT = 260;
-      const parts: Phaser.GameObjects.Components.Transform[] = [this.disc, this.icon, this.hpBar];
+      const parts: Phaser.GameObjects.Components.Transform[] = [this.disc, this.icon, this.hpBar, this.hpText];
       if (this.aura) parts.push(this.aura);
       for (const part of parts) {
         const targetY = part.y;
@@ -88,7 +95,14 @@ export class Unit {
     this.disc.x = this.x;
     this.icon.x = this.x;
     this.hpBar.x = this.x - this.stats.size / 2;
+    this.hpText.x = this.x;
     if (this.aura) this.aura.x = this.x;
+  }
+
+  /** Đồng bộ thanh máu + số máu trên đầu với hp hiện tại. */
+  private refreshHp(): void {
+    this.hpBar.width = this.stats.size * (this.hp / this.maxHp);
+    this.hpText.setText(`${Math.ceil(this.hp)}`);
   }
 
   /** Titan: bật/tắt vòng hào quang (khi qua ngưỡng máu). No-op nếu không phải titan. */
@@ -100,13 +114,15 @@ export class Unit {
 
   takeDamage(amount: number): void {
     this.hp = Math.max(0, this.hp - amount);
-    this.hpBar.width = this.stats.size * (this.hp / this.maxHp);
+    this.refreshHp();
+    // Số sát thương bay lên tại vị trí trúng đòn.
+    showDamagePopup(this.scene, this.x, LANE_Y - this.stats.size - 10, amount);
   }
 
   /** Hồi máu (Sumo ở hậu phương), kẹp trần maxHp. */
   heal(amount: number): void {
     this.hp = Math.min(this.maxHp, this.hp + amount);
-    this.hpBar.width = this.stats.size * (this.hp / this.maxHp);
+    this.refreshHp();
   }
 
   isDead(): boolean {
@@ -181,6 +197,7 @@ export class Unit {
     this.disc.destroy();
     this.icon.destroy();
     this.hpBar.destroy();
+    this.hpText.destroy();
     this.aura?.destroy();
   }
 }

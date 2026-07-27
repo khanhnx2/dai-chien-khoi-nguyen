@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import { BASE, LANE_Y, Side, SIDE_INFO, baseXOf } from '../config/game-config';
+import { showDamagePopup } from '../ui/damage-popup';
 
 const BUILDING_COLOR = 0x2b2b3a;
 
@@ -11,8 +12,12 @@ export class Base {
   maxHp: number;
 
   private readonly hpBar: Phaser.GameObjects.Rectangle;
+  /** Số máu hiện tại hiển thị trên thanh máu. */
+  private readonly hpText: Phaser.GameObjects.Text;
+  private readonly scene: Phaser.Scene;
 
   constructor(scene: Phaser.Scene, side: Side, hpMult = 1) {
+    this.scene = scene;
     this.side = side;
     this.x = baseXOf(side);
     this.maxHp = BASE.maxHp * hpMult;
@@ -48,11 +53,17 @@ export class Base {
     this.hpBar = scene.add
       .rectangle(this.x - BASE.width / 2, barY, BASE.width, 8, 0x22c55e)
       .setOrigin(0, 0.5);
+    // Số máu hiện tại (trên thanh máu).
+    this.hpText = scene.add
+      .text(this.x, barY - 11, `${Math.ceil(this.hp)}`, { fontSize: '12px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 })
+      .setOrigin(0.5);
   }
 
   takeDamage(amount: number): void {
     this.hp = Math.max(0, this.hp - amount);
     this.refreshBar();
+    // Số sát thương bay lên tại mặt tiền thành.
+    showDamagePopup(this.scene, this.frontX, LANE_Y - BASE.height / 2, amount);
   }
 
   /** Nâng cấp máu thành: tăng máu tối đa + hồi ngần đó. */
@@ -64,6 +75,7 @@ export class Base {
 
   private refreshBar(): void {
     this.hpBar.width = BASE.width * (this.hp / this.maxHp);
+    this.hpText.setText(`${Math.ceil(this.hp)}`);
   }
 
   isDead(): boolean {
