@@ -64,6 +64,8 @@ export const TITAN_AURA_HP_FRAC = 2 / 3; // hp/maxHp > mốc này → hào quang
 export const TITAN_DEATH_HEAL_FRAC = 0.01; // chết → +1% maxHp mỗi lính cùng phe
 export const TITAN_HERO_DMG_TAKEN_FRAC = 0.25; // titan chỉ hứng ¼ sát thương từ hero (Sumo/Labubu)
 export const TITAN_AOE_RADIUS = 70; // titan cầm tre đập DIỆN RỘNG: trúng mọi lính địch trong bán kính X này
+export const TITAN_KNOCKBACK = 40; // px đẩy lùi lính địch (về phía thành chúng) mỗi đòn tre
+export const TITAN_STUN_MS = 1000; // choáng lính địch 1s sau khi trúng tre (bỏ lượt đi/đánh)
 /** X đẻ titan: 1/3 sân phía quân mình (Khôi ≈320, Nguyên ≈640). */
 export function titanSpawnX(side: Side): number {
   return side === Side.Khoi ? GAME_WIDTH / 3 : (GAME_WIDTH * 2) / 3;

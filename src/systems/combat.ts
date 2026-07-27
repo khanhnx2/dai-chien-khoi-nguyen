@@ -44,6 +44,7 @@ export function updateBattle(
 ): void {
   for (const unit of units) {
     if (unit.isDead()) continue;
+    if (now < unit.stunnedUntil) continue; // choáng: bỏ lượt (không đi/đánh) — vẫn bị nhắm & ăn damage
 
     // Hero (Sumo/Labubu) có máy trạng thái riêng (lao tới / rút lui hồi máu).
     if (heroDefByType(unit.type)) {

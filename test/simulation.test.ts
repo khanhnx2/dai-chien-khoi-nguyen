@@ -790,4 +790,24 @@ check('titan: đòn đánh AoE trúng nhiều lính địch cùng lúc', () => {
   assert.strictEqual(far.hp, far.maxHp, 'lính ngoài bán kính không trúng');
 });
 
+// 43. Titan đập tre: lính địch bị đẩy lùi + choáng (bỏ lượt tới hết choáng).
+check('titan: đập tre đẩy lùi + choáng lính địch', () => {
+  const bases = makeBases();
+  const economy = new Economy();
+  const titan = new Unit(scene, Side.Khoi, UnitType.Capibara, 500);
+  const foe = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 520);
+  updateTitan(titan, [titan, foe], bases, DT, 5000);
+  assert.strictEqual(foe.stunnedUntil, 6000, 'choáng 1s (now+1000)');
+  assert.ok(foe.x > 520, 'bị đẩy lùi về phía thành Nguyên (x tăng)');
+
+  // Còn choáng (now 5500 < 6000): lính đứng im dù updateBattle chạy.
+  const xStunned = foe.x;
+  updateBattle([titan, foe], bases, economy, DT, 5500);
+  assert.strictEqual(foe.x, xStunned, 'đang choáng → không di chuyển');
+
+  // Hết choáng (now 6100): lính đi lại (tiến sang trái về thành Khôi).
+  updateBattle([titan, foe], bases, economy, DT, 6100);
+  assert.ok(foe.x < xStunned, 'hết choáng → tiến trở lại');
+});
+
 console.log(`\n${passed} test cases passed.`);

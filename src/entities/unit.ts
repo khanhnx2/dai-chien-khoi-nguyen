@@ -33,6 +33,8 @@ export class Unit {
   lastCryAt = 0;
   /** Titan: vòng hào quang còn hiệu lực (chặn đạn xuyên Father)? */
   auraActive = false;
+  /** Thời điểm (ms) hết choáng — trong lúc choáng, unit bỏ lượt (không đi/đánh). */
+  stunnedUntil = 0;
 
   private readonly scene: Phaser.Scene;
   private readonly disc: Phaser.GameObjects.Arc;
@@ -159,6 +161,20 @@ export class Unit {
         onComplete: () => slash.destroy(),
       });
     }
+  }
+
+  /** Choáng: hiện 💫 trên đầu, bay lên mờ dần rồi tự huỷ. Thuần hình ảnh. */
+  showStun(): void {
+    const star = this.scene.add
+      .text(this.x, LANE_Y - this.stats.size - 6, '💫', { fontSize: '16px' })
+      .setOrigin(0.5);
+    this.scene.tweens.add({
+      targets: star,
+      y: star.y - 12,
+      alpha: { from: 1, to: 0 },
+      duration: 900,
+      onComplete: () => star.destroy(),
+    });
   }
 
   destroy(): void {
