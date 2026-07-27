@@ -679,9 +679,9 @@ check('tiếp viện: màn 20 không kích dù thành Máy ≤50%', () => {
 });
 
 // 35. Titan: stats dẫn xuất Giáp binh + vị trí đẻ 1/3 sân.
-check('titan: stats (hp1400/dmg36/speed20/cd2200/cost200) + spawnX 1/3', () => {
+check('titan: stats (hp5000/dmg36/speed20/cd2200/cost200) + spawnX 1/3', () => {
   const c = UNITS[UnitType.Capibara];
-  assert.strictEqual(c.hp, 1400);
+  assert.strictEqual(c.hp, 5000);
   assert.strictEqual(c.damage, 36);
   assert.strictEqual(c.speed, 20);
   assert.strictEqual(c.attackCooldownMs, 2200);
@@ -775,6 +775,19 @@ check('titan: nâng cấp máu fold vào mods', () => {
   addCoins(9999);
   assert.strictEqual(buyUpgrade(hpDef), true);
   assert.ok(computePlayerMods().unitHp[UnitType.Capibara] > 1, 'máu Capibara tăng sau nâng cấp');
+});
+
+// 42. Titan đập cây tre = AoE: 1 đòn trúng nhiều lính địch trong bán kính.
+check('titan: đòn đánh AoE trúng nhiều lính địch cùng lúc', () => {
+  const bases = makeBases();
+  const titan = new Unit(scene, Side.Khoi, UnitType.Capibara, 500);
+  const a = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 520); // dist 20 (trong tầm)
+  const b = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 560); // dist 60 (trong AoE 70, ngoài tầm 46)
+  const far = new Unit(scene, Side.Nguyen, UnitType.BoBinh, 620); // dist 120 (ngoài AoE)
+  updateTitan(titan, [titan, a, b, far], bases, DT, 5000);
+  assert.ok(a.hp < a.maxHp, 'lính gần trúng');
+  assert.ok(b.hp < b.maxHp, 'lính trong AoE cũng trúng');
+  assert.strictEqual(far.hp, far.maxHp, 'lính ngoài bán kính không trúng');
 });
 
 console.log(`\n${passed} test cases passed.`);

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CAPIBARA_FACE_KEY, FACE_KEY, FATHER_FACE_KEY, LABUBU_FACE_KEY, SUMO_FACE_KEY, Side, TOTORO_FACE_KEY } from '../config/game-config';
+import { BAMBOO_FACE_KEY, CAPIBARA_FACE_KEY, FACE_KEY, FATHER_FACE_KEY, LABUBU_FACE_KEY, SUMO_FACE_KEY, Side, TOTORO_FACE_KEY } from '../config/game-config';
 import khoiFaceUrl from '../../assets/characters/player-khoi-cutout.png';
 import nguyenFaceUrl from '../../assets/characters/player-nguyen-cutout.png';
 import fatherFaceUrl from '../../assets/characters/player-father-cutout.png';
@@ -7,6 +7,7 @@ import sumoUrl from '../../assets/characters/sumo-cutout.png';
 import labubuUrl from '../../assets/characters/labubu-cutout.png';
 import capibaraUrl from '../../assets/characters/capibara-cutout.png';
 import totoroUrl from '../../assets/characters/totoro-cutout.png';
+import bambooUrl from '../../assets/characters/bamboo-cutout.png';
 
 /**
  * Preload: nạp avatar (đã tách nền). Import qua Vite để URL đúng base path trên
@@ -30,6 +31,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(LABUBU_FACE_KEY, labubuUrl);
     this.load.image(CAPIBARA_FACE_KEY, capibaraUrl);
     this.load.image(TOTORO_FACE_KEY, totoroUrl);
+    this.load.image(BAMBOO_FACE_KEY, bambooUrl);
   }
 
   create(): void {

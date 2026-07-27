@@ -1,4 +1,4 @@
-import { Side, TITAN_AURA_HP_FRAC, directionOf, enemyOf } from '../config/game-config';
+import { Side, TITAN_AOE_RADIUS, TITAN_AURA_HP_FRAC, directionOf, enemyOf } from '../config/game-config';
 import type { Base } from '../entities/base';
 import type { Unit } from '../entities/unit';
 import { nearestEnemyUnit } from './combat';
@@ -28,7 +28,11 @@ export function updateTitan(
 
   if (attackUnit && nearest) {
     if (ready) {
-      nearest.target.takeDamage(unit.attackDamage); // titan không khắc chế → không nhân hệ số
+      // Cầm cây tre đập DIỆN RỘNG: trúng MỌI lính địch trong bán kính quanh titan.
+      for (const other of units) {
+        if (other.side === unit.side || other.isDead() || !other.isTargetable()) continue;
+        if (Math.abs(other.x - unit.x) <= TITAN_AOE_RADIUS) other.takeDamage(unit.attackDamage);
+      }
       unit.lastAttackAt = now;
       unit.attackFx(nearest.target.x);
       sound.play('slash');

@@ -63,6 +63,7 @@ export const TITAN_UNLOCK_COST = 120; // giá mở khoá ở shop (xu)
 export const TITAN_AURA_HP_FRAC = 2 / 3; // hp/maxHp > mốc này → hào quang chặn đạn xuyên
 export const TITAN_DEATH_HEAL_FRAC = 0.01; // chết → +1% maxHp mỗi lính cùng phe
 export const TITAN_HERO_DMG_TAKEN_FRAC = 0.25; // titan chỉ hứng ¼ sát thương từ hero (Sumo/Labubu)
+export const TITAN_AOE_RADIUS = 70; // titan cầm tre đập DIỆN RỘNG: trúng mọi lính địch trong bán kính X này
 /** X đẻ titan: 1/3 sân phía quân mình (Khôi ≈320, Nguyên ≈640). */
 export function titanSpawnX(side: Side): number {
   return side === Side.Khoi ? GAME_WIDTH / 3 : (GAME_WIDTH * 2) / 3;
@@ -183,7 +184,7 @@ function heroUnitStats(label: string, color: number): UnitStats {
 function titanUnitStats(label: string, color: number): UnitStats {
   return {
     label,
-    hp: 1400, // = ×5 Giáp binh
+    hp: 5000, // tank khổng lồ (rất trâu)
     damage: 36, // = ×2 Giáp binh (18)
     speed: 20, // = ½ Giáp binh (40)
     range: 46, // cận chiến = Giáp binh
@@ -220,6 +221,9 @@ export const LABUBU_FACE_KEY = 'unit-labubu';
 /** Khoá texture ảnh Capibara/Totoro (đã tách nền) — titan dùng ảnh thật thay emoji. */
 export const CAPIBARA_FACE_KEY = 'unit-capibara';
 export const TOTORO_FACE_KEY = 'unit-totoro';
+
+/** Khoá texture cây tre (đã tách nền) — titan vung khi đánh. */
+export const BAMBOO_FACE_KEY = 'weapon-bamboo';
 
 /** Bảng khắc chế: kéo–búa–bao (Father không tham gia khắc chế). Bộ>Cung, Cung>Giáp, Giáp>Bộ. */
 export const COUNTER_MULTIPLIER = 1.6;

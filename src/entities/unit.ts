@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import {
+  BAMBOO_FACE_KEY,
   FATHER_FACE_KEY,
   LANE_Y,
   SIDE_INFO,
@@ -126,6 +127,22 @@ export class Unit {
    */
   attackFx(targetX: number): void {
     const y = LANE_Y - this.stats.size / 2;
+    // Titan: vung cây tre (xoay quanh gốc như cầm gậy đập xuống), tự huỷ.
+    if (titanDefByType(this.type)) {
+      const dir = directionOf(this.side);
+      const bamboo = this.scene.add
+        .image(this.x + dir * (this.stats.size / 2), LANE_Y, BAMBOO_FACE_KEY)
+        .setDisplaySize(22, 84)
+        .setOrigin(0.5, 1);
+      this.scene.tweens.add({
+        targets: bamboo,
+        angle: { from: -dir * 80, to: dir * 45 },
+        duration: 220,
+        ease: 'Cubic.easeIn',
+        onComplete: () => bamboo.destroy(),
+      });
+      return;
+    }
     if (this.type === UnitType.CungThu) {
       const arrow = this.scene.add.rectangle(this.x, y, 16, 3, 0xfacc15);
       this.scene.tweens.add({ targets: arrow, x: targetX, duration: 160, onComplete: () => arrow.destroy() });
