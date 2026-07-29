@@ -804,6 +804,22 @@ check('titan: đòn đánh AoE trúng nhiều lính địch cùng lúc', () => {
   assert.strictEqual(far.hp, far.maxHp, 'lính ngoài bán kính không trúng');
 });
 
+// 42b. Nâng cấp giảm giá/giảm hồi chiêu titan phải áp vào trySpawnTitan (khớp giá HUD).
+check('titan: trySpawnTitan trừ giá & hồi chiêu ĐÃ giảm theo mods', () => {
+  const mods = { [Side.Khoi]: uniformSideMods(1), [Side.Nguyen]: uniformSideMods(1) };
+  mods[Side.Khoi].unitCost[UnitType.Capibara] = 0.8; // -20% giá → 160
+  mods[Side.Khoi].unitSpawnCd[UnitType.Capibara] = 0.5; // -50% hồi chiêu → 4000ms
+  const spawn = new SpawnManager(scene, mods);
+  const economy = new Economy();
+  economy.reward(Side.Khoi, 1000);
+  const before = economy.getGold(Side.Khoi);
+  const units: Unit[] = [];
+  const r = spawn.trySpawnTitan(Side.Khoi, UnitType.Capibara, economy, units, 1000);
+  assert.ok('unit' in r, 'đẻ thành công');
+  assert.strictEqual(before - economy.getGold(Side.Khoi), 160, 'trừ 160 (đã giảm 20%), không phải 200');
+  assert.strictEqual(spawn.cooldownLeft(Side.Khoi, UnitType.Capibara, 1000), 4000, 'hồi chiêu 4000ms (đã giảm 50%)');
+});
+
 // 43. Titan đập tre: lính địch bị đẩy lùi + choáng (bỏ lượt tới hết choáng).
 check('titan: đập tre đẩy lùi + choáng lính địch', () => {
   const bases = makeBases();

@@ -7,7 +7,6 @@ import {
   SideMods,
   Side,
   TITAN_SPAWN_COOLDOWN_MS,
-  TITAN_SPAWN_COST,
   UNITS,
   UnitType,
   titanSpawnX,
@@ -66,17 +65,18 @@ export class SpawnManager {
     return { unit };
   }
 
-  /** Đẻ titan: trừ 200 vàng + hồi chiêu 8s + cap; rơi từ trời tại 1/3 sân phía quân mình. */
+  /** Đẻ titan: trừ vàng + hồi chiêu (ĐÃ áp nâng cấp giảm giá/giảm hồi chiêu) + cap; rơi tại 1/3 sân. */
   trySpawnTitan(side: Side, type: UnitType, economy: Economy, units: Unit[], now: number): SpawnResult {
     const key = `${side}:${type}`;
     if (now < (this.readyAt.get(key) ?? 0)) return { reason: 'cooldown' };
     if (this.countSide(units, side) >= POPULATION_CAP) return { reason: 'cap' };
-    if (!economy.spend(side, TITAN_SPAWN_COST)) return { reason: 'gold' };
+    // Giá theo mods (khớp giá HUD hiển thị) — base = UNITS[titan].cost (TITAN_SPAWN_COST).
+    if (!economy.spend(side, unitCost(this.mods, side, type))) return { reason: 'gold' };
 
     const m = this.mods[side];
     const unit = new Unit(this.scene, side, type, titanSpawnX(side), m.unitHp[type], m.unitDmg[type], true);
     units.push(unit);
-    this.readyAt.set(key, now + TITAN_SPAWN_COOLDOWN_MS);
+    this.readyAt.set(key, now + TITAN_SPAWN_COOLDOWN_MS * m.unitSpawnCd[type]);
     return { unit };
   }
 
