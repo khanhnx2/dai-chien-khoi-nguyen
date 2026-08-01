@@ -667,8 +667,8 @@ check('tiếp viện: màn 30 kích 1 lần → 12 lính (3 mỗi loại + hero 
   assert.strictEqual(units.length, 12);
 });
 
-// 34b. Màn ≥40: đợt tiếp viện kèm đúng 1 Titan phe Máy.
-check('tiếp viện: màn 40 kèm 1 Titan (4×4 lính + 1 titan = 17)', () => {
+// 34b. Màn ≥40: đợt tiếp viện kèm `count` Titan phe Máy (nhân theo màn như các loại khác).
+check('tiếp viện: màn 40 kèm 4 Titan (4×5 loại = 20)', () => {
   const bases = makeBases();
   const spawn = new SpawnManager(scene);
   const units: Unit[] = [];
@@ -676,8 +676,8 @@ check('tiếp viện: màn 40 kèm 1 Titan (4×4 lính + 1 titan = 17)', () => {
   const aiSide = Side.Nguyen; // titan = Totoro
   bases[aiSide].hp = bases[aiSide].maxHp * 0.3;
   assert.strictEqual(mgr.update(40, aiSide, bases, spawn, units), true);
-  assert.strictEqual(units.length, 17, '4 × 4 loại lính + 1 titan');
-  assert.strictEqual(units.filter((u) => u.type === UnitType.Totoro).length, 1, 'đúng 1 Totoro');
+  assert.strictEqual(units.length, 20, '4 × (bộ binh, cung thủ, giáp binh, hero, titan)');
+  assert.strictEqual(units.filter((u) => u.type === UnitType.Totoro).length, 4, 'đúng 4 Totoro (=count)');
   assert.ok(units.every((u) => u.side === aiSide), 'tất cả phe Máy');
 });
 
