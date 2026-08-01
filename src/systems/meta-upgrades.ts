@@ -1,6 +1,7 @@
 import {
   ALL_HERO_UPGRADES,
   ALL_TITAN_UPGRADES,
+  CANNON_UPGRADES,
   META_UPGRADES,
   MetaUpgradeDef,
   SideMods,
@@ -109,6 +110,8 @@ export function computePlayerMods(): SideMods {
       case 'baseHp': mods.baseHp *= factor; break;
       case 'roofDmg': mods.roofDmg *= factor; break;
       case 'roofCd': mods.roofCd *= factor; break;
+      case 'cannonDmg': mods.cannonDmg *= factor; break;
+      case 'cannonCd': mods.cannonCd *= factor; break;
       case 'income': mods.income *= factor; break;
       case 'unitHp': mods.unitHp[def.unitType as UnitType] *= factor; break;
       case 'unitDmg': mods.unitDmg[def.unitType as UnitType] *= factor; break;
@@ -119,5 +122,6 @@ export function computePlayerMods(): SideMods {
   for (const def of META_UPGRADES) apply(def);
   for (const def of ALL_HERO_UPGRADES) apply(def);
   for (const def of ALL_TITAN_UPGRADES) apply(def);
+  for (const def of CANNON_UPGRADES) apply(def);
   return mods;
 }

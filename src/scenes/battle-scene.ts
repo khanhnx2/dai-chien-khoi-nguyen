@@ -21,6 +21,8 @@ import { Base } from '../entities/base';
 import type { Unit } from '../entities/unit';
 import type { Projectile } from '../entities/projectile';
 import { RoofAttacker } from '../entities/roof-attacker';
+import { Cannon } from '../entities/cannon';
+import { usableCannon } from '../systems/cannon-shop';
 import { Economy } from '../systems/economy';
 import { SpawnManager } from '../systems/spawn';
 import { updateBattle } from '../systems/combat';
@@ -57,6 +59,7 @@ export class BattleScene extends Phaser.Scene {
   private special!: SpecialAbility;
   private ai!: BasicAi;
   private reinforcements!: ReinforcementManager;
+  private cannon?: Cannon;
   private hud!: BattleHud;
   private upgradePanel!: UpgradePanel;
   private gameOver = false;
@@ -73,6 +76,7 @@ export class BattleScene extends Phaser.Scene {
     saveLastSelection(this.playerSide, this.difficulty); // nhớ lựa chọn cuối cho menu
     this.units = [];
     this.projectiles = [];
+    this.cannon = undefined;
     this.gameOver = false;
   }
 
@@ -100,6 +104,11 @@ export class BattleScene extends Phaser.Scene {
       [Side.Khoi]: new RoofAttacker(this, Side.Khoi, mods[Side.Khoi].roofDmg, mods[Side.Khoi].roofCd),
       [Side.Nguyen]: new RoofAttacker(this, Side.Nguyen, mods[Side.Nguyen].roofDmg, mods[Side.Nguyen].roofCd),
     };
+    // Đại bác: chỉ phe người chơi, cần đã mở khoá (xu) VÀ màn ≥ CANNON_MIN_STAGE.
+    if (usableCannon(this.stage)) {
+      const m = mods[this.playerSide];
+      this.cannon = new Cannon(this, this.playerSide, m.cannonDmg, m.cannonCd);
+    }
     this.economy = new Economy({ [Side.Khoi]: mods[Side.Khoi].income, [Side.Nguyen]: mods[Side.Nguyen].income });
     this.spawn = new SpawnManager(this, mods);
     this.upgrades = new Upgrades();
@@ -166,6 +175,7 @@ export class BattleScene extends Phaser.Scene {
     }
     this.roofs[Side.Khoi].update(time, this.units, this.projectiles, this.upgrades);
     this.roofs[Side.Nguyen].update(time, this.units, this.projectiles, this.upgrades);
+    this.cannon?.update(time, this.units, this.projectiles);
     updateProjectiles(this.projectiles, this.units, this.bases, dt);
     this.hud.update(time, this.economy, this.spawn, this.special);
     this.upgradePanel.update(this.economy, this.upgrades);

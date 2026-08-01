@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import { BASE, FACE_KEY, LANE_Y, ROOF_ATTACK, SIDE_INFO, Side, baseXOf, directionOf } from '../config/game-config';
 import { Projectile } from './projectile';
+import { nearestEnemyInRange } from './targeting';
 import { sound } from '../audio/sound-manager';
 import type { Unit } from './unit';
 import type { Upgrades } from '../systems/upgrades';
@@ -39,7 +40,7 @@ export class RoofAttacker {
 
   update(now: number, units: Unit[], projectiles: Projectile[], upgrades: Upgrades): void {
     const cfg = ROOF_ATTACK[this.side];
-    const target = this.nearestEnemyInRange(units, cfg.range);
+    const target = nearestEnemyInRange(units, this.side, this.frontX, cfg.range);
     if (!target) return;
     if (now - this.lastFireAt < cfg.cooldownMs * this.cdMult) return;
 
@@ -56,19 +57,5 @@ export class RoofAttacker {
   private animateFire(): void {
     if (!this.scene || !this.head) return;
     this.scene.tweens.add({ targets: this.head, y: this.headBaseY - 6, yoyo: true, duration: 110 });
-  }
-
-  private nearestEnemyInRange(units: Unit[], range: number): Unit | null {
-    let best: Unit | null = null;
-    let bestD = range;
-    for (const u of units) {
-      if (u.side === this.side || u.isDead() || !u.isTargetable()) continue;
-      const d = Math.abs(u.x - this.frontX);
-      if (d <= bestD) {
-        bestD = d;
-        best = u;
-      }
-    }
-    return best;
   }
 }

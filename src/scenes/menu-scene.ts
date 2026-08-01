@@ -16,6 +16,7 @@ import { getCoins } from '../systems/meta-upgrades';
 import { COLORS, FONT, drawGradientBg } from '../ui/theme';
 import { avatarFrame, clayButton, type AvatarFrame, type ClayButton } from '../ui/ui-kit';
 import { buildResetProgressButton } from '../ui/reset-progress-button';
+import { buildCannonShopButton } from '../ui/cannon-shop-button';
 import { sound } from '../audio/sound-manager';
 
 /** Menu: chọn mức khó + phe + màn (chiến dịch 50 màn riêng cho mỗi phe×mức) → Bắt đầu. */
@@ -70,6 +71,7 @@ export class MenuScene extends Phaser.Scene {
       onClick: () => this.scene.start('upgrade'),
     });
     buildResetProgressButton(this);
+    buildCannonShopButton(this);
     // Cửa hàng hero mỗi phe: Khôi (Sumo) bên trái dưới Nâng cấp; Nguyên (Labubu) bên
     // phải. Thu hẹp + né mép chữ tiêu đề (canh giữa, ~x217–743). Luôn hiện để mua/nâng cấp.
     for (const hero of HEROES) {

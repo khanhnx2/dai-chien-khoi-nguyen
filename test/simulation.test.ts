@@ -47,6 +47,18 @@ import { updateTitan } from '../src/systems/titan-behavior';
 import { updateHero } from '../src/systems/hero-behavior';
 import { titanForSide, titanSpawnX, TITAN_AURA_HP_FRAC, TITAN_HERO_DMG_TAKEN_FRAC, TITANS } from '../src/config/game-config';
 import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel, resetMetaProgress } from '../src/systems/meta-upgrades';
+import { Cannon } from '../src/entities/cannon';
+import { usableCannon } from '../src/systems/cannon-shop';
+import {
+  CANNON_COOLDOWN_MS,
+  CANNON_DAMAGE,
+  CANNON_MIN_STAGE,
+  CANNON_RANGE,
+  CANNON_UNLOCK,
+  CANNON_UPGRADES,
+  baseXOf,
+  directionOf,
+} from '../src/config/game-config';
 import { buyHeroUpgrade, heroUpgradeLevel, isHeroUnlocked, unlockHero, usableHero } from '../src/systems/hero-shop';
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
 
@@ -856,6 +868,79 @@ check('reset: xóa toàn bộ tiến trình (xu, nâng cấp, màn đã mở)', 
   assert.strictEqual(getCoins(), 0, 'hết xu sau reset');
   assert.strictEqual(getLevel(hpDef.id), 0, 'cấp nâng cấp về 0 sau reset');
   assert.strictEqual(getUnlockedStage(Side.Khoi, Difficulty.Normal), 1, 'màn đã mở về 1 sau reset');
+});
+
+// 47. Đại bác: gating theo unlock + màn.
+check('đại bác: usableCannon cần cả unlock lẫn màn ≥40', () => {
+  resetMetaProgress();
+  assert.strictEqual(usableCannon(99), false, 'chưa unlock → false dù màn cao');
+  addCoins(999);
+  assert.strictEqual(buyUpgrade(CANNON_UNLOCK), true);
+  assert.strictEqual(usableCannon(CANNON_MIN_STAGE - 1), false, 'đã unlock nhưng màn <40');
+  assert.strictEqual(usableCannon(CANNON_MIN_STAGE), true, 'đủ cả 2 điều kiện');
+});
+
+// 48. Đại bác: bắn 1 viên/5s, 1000 dmg, tầm 400, đơn mục tiêu.
+check('đại bác: bắn theo nhịp, tầm giới hạn, đơn mục tiêu', () => {
+  const bases = makeBases();
+  const cannon = new Cannon(scene, Side.Khoi);
+  const frontX = baseXOf(Side.Khoi) + directionOf(Side.Khoi) * (BASE.width / 2);
+  const near = new Unit(scene, Side.Nguyen, UnitType.BoBinh, frontX + 300); // trong tầm 400
+  const far = new Unit(scene, Side.Nguyen, UnitType.BoBinh, frontX + 500); // ngoài tầm 400
+  const units = [near, far];
+  const projectiles: Projectile[] = [];
+
+  // lastFireAt khởi tạo 0 → phát đầu tiên chỉ bắn khi now ≥ CANNON_COOLDOWN_MS.
+  cannon.update(CANNON_COOLDOWN_MS, units, projectiles);
+  assert.strictEqual(projectiles.length, 1, 'bắn khi có mục tiêu trong tầm & đủ hồi chiêu');
+  assert.strictEqual(projectiles[0].damage, CANNON_DAMAGE);
+
+  cannon.update(CANNON_COOLDOWN_MS + 2000, units, projectiles); // mới qua 2s, chưa đủ 5s
+  assert.strictEqual(projectiles.length, 1, 'chưa tới nhịp thì không bắn lại');
+
+  cannon.update(CANNON_COOLDOWN_MS * 2 + 100, units, projectiles);
+  assert.strictEqual(projectiles.length, 2, 'đủ 5s kể từ phát trước → bắn viên kế');
+
+  // 60 khung (~1s ở 380px/s ≈ 380px) đủ để đạn tới "near" (300px) nhưng KHÔNG đủ tới "far" (500px)
+  // — tránh đạn thứ 2 (nhắm near, nhưng near đã chết) bay tiếp trúng far, làm sai lệch phép thử tầm bắn.
+  for (let i = 0; i < 60; i++) {
+    updateProjectiles(projectiles, units, bases, DT);
+  }
+  assert.ok(near.hp < near.maxHp, 'lính trong tầm trúng đạn');
+  assert.strictEqual(far.hp, far.maxHp, 'lính ngoài tầm 400px không trúng');
+  assert.ok(near.maxHp - near.hp <= CANNON_DAMAGE + 1e-6, 'đơn mục tiêu — không lan sang lính khác');
+});
+
+// 49. Đại bác: dmgMult/cdMult (từ nâng cấp) áp đúng.
+check('đại bác: dmgMult/cdMult áp đúng vào sát thương & nhịp bắn', () => {
+  const cannon = new Cannon(scene, Side.Khoi, 2, 0.5); // ×2 dmg, hồi chiêu còn 2500ms
+  const frontX = baseXOf(Side.Khoi) + directionOf(Side.Khoi) * (BASE.width / 2);
+  const target = new Unit(scene, Side.Nguyen, UnitType.BoBinh, frontX + 100);
+  const units = [target];
+  const projectiles: Projectile[] = [];
+
+  const effectiveCd = CANNON_COOLDOWN_MS * 0.5; // 2500ms — lastFireAt khởi tạo 0
+  cannon.update(effectiveCd, units, projectiles);
+  assert.strictEqual(projectiles.length, 1);
+  assert.strictEqual(projectiles[0].damage, CANNON_DAMAGE * 2);
+
+  cannon.update(effectiveCd + 2400, units, projectiles); // mới qua 2.4s < 2.5s
+  assert.strictEqual(projectiles.length, 1, 'chưa đủ hồi chiêu rút ngắn');
+
+  cannon.update(effectiveCd + 2600, units, projectiles); // qua 2.6s > 2.5s
+  assert.strictEqual(projectiles.length, 2, 'đủ hồi chiêu rút ngắn theo cdMult');
+});
+
+// 50. Đại bác: nâng cấp fold vào computePlayerMods.
+check('đại bác: nâng cấp Sát thương/Giảm hồi chiêu fold vào mods', () => {
+  resetMetaProgress();
+  assert.strictEqual(computePlayerMods().cannonDmg, 1);
+  assert.strictEqual(computePlayerMods().cannonCd, 1);
+  addCoins(999);
+  assert.strictEqual(buyUpgrade(CANNON_UPGRADES[0]), true); // Sát thương
+  assert.ok(computePlayerMods().cannonDmg > 1, 'sát thương tăng sau nâng cấp');
+  assert.strictEqual(buyUpgrade(CANNON_UPGRADES[1]), true); // Giảm hồi chiêu
+  assert.ok(computePlayerMods().cannonCd < 1, 'hồi chiêu giảm sau nâng cấp');
 });
 
 console.log(`\n${passed} test cases passed.`);

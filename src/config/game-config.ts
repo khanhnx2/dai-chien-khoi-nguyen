@@ -280,6 +280,15 @@ export const ROOF_ATTACK: Record<Side, RoofAttackConfig> = {
   [Side.Nguyen]: { kind: 'straight', damage: 13, range: 320, cooldownMs: 650, projectileSpeed: 560, aoeRadius: 0, color: 0x38bdf8 },
 };
 
+// ---- Đại bác: sau thành người chơi, chỉ từ màn ≥40 + đã mở khoá bằng xu ----
+export const CANNON_MIN_STAGE = 40;
+export const CANNON_UNLOCK_COST = 240; // xu, mua 1 lần
+export const CANNON_DAMAGE = 1000;
+export const CANNON_COOLDOWN_MS = 5000;
+export const CANNON_RANGE = 400;
+export const CANNON_PROJECTILE_SPEED = 380; // chậm hơn đạn thường → cảm giác "nặng"
+export const CANNON_PROJECTILE_COLOR = 0x334155;
+
 /** Kỹ năng bấm tay: Khôi mưa trứng (nhiều đạn AoE), Nguyên xịt nước mạnh (dải + đẩy lùi). */
 export interface SpecialConfig {
   label: string;
@@ -397,6 +406,8 @@ export interface SideMods {
   baseHp: number;
   roofDmg: number;
   roofCd: number;
+  cannonDmg: number;
+  cannonCd: number;
   income: number;
 }
 
@@ -425,12 +436,14 @@ export function uniformSideMods(mult: number): SideMods {
     baseHp: mult,
     roofDmg: mult,
     roofCd: 1,
+    cannonDmg: mult,
+    cannonCd: 1,
     income: 1,
   };
 }
 
 // ---- Nâng cấp vĩnh viễn của người chơi (mua bằng "xu" ở Menu) ----
-export type MetaTarget = 'unitHp' | 'unitDmg' | 'unitCost' | 'unitSpawnCd' | 'baseHp' | 'roofDmg' | 'roofCd' | 'income';
+export type MetaTarget = 'unitHp' | 'unitDmg' | 'unitCost' | 'unitSpawnCd' | 'baseHp' | 'roofDmg' | 'roofCd' | 'cannonDmg' | 'cannonCd' | 'income';
 
 export interface MetaUpgradeDef {
   id: string; // khoá lưu localStorage
@@ -630,5 +643,23 @@ export function titanDefByType(type: UnitType): TitanDef | undefined {
 }
 /** Gộp mọi nâng cấp titan (để computePlayerMods fold 1 lượt). */
 export const ALL_TITAN_UPGRADES: MetaUpgradeDef[] = TITANS.flatMap((t) => t.upgrades);
+
+// ============================================================================
+// ĐẠI BÁC — thực thể DUY NHẤT (không phải cặp theo phe như hero/titan): dùng
+// chung cho bất kỳ phe nào người chơi cầm. Mở khoá 1 lần bằng xu + 2 nâng cấp
+// (hệ số nhóm "Thành" INC/RED, KHÔNG ×2 như hero/titan vì cannon đã rất mạnh).
+// ============================================================================
+
+/** Def "mở khoá" đại bác (1 cấp, giá cố định) — KHÔNG fold vào mods (perLevel 0). */
+export const CANNON_UNLOCK: MetaUpgradeDef = {
+  id: 'cannon.unlock', group: 'Đại bác', label: 'Mở khoá Đại bác',
+  target: 'income', perLevel: 0, maxLevel: 1, baseCost: CANNON_UNLOCK_COST, costGrowth: 1,
+};
+
+/** 2 nâng cấp đại bác. */
+export const CANNON_UPGRADES: MetaUpgradeDef[] = [
+  { id: 'cannon.dmg', group: 'Đại bác', label: 'Sát thương', target: 'cannonDmg', perLevel: INC, maxLevel: MAX_LV, baseCost: 14, costGrowth: 1.45 },
+  { id: 'cannon.cd', group: 'Đại bác', label: 'Giảm hồi chiêu', target: 'cannonCd', perLevel: RED, maxLevel: MAX_LV, baseCost: 14, costGrowth: 1.45 },
+];
 
 export { ALL_UNIT_TYPES };

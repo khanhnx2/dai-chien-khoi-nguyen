@@ -3,7 +3,7 @@
 // MetaUpgradeDef, kể cả HERO_UPGRADES) → DRY giữa 2 scene.
 
 import Phaser from 'phaser';
-import { BASE, ECONOMY, GAME_WIDTH, MetaUpgradeDef, SideMods, UNITS, UnitType } from '../config/game-config';
+import { BASE, CANNON_DAMAGE, CANNON_COOLDOWN_MS, CANNON_MIN_STAGE, CANNON_RANGE, ECONOMY, GAME_WIDTH, MetaUpgradeDef, SideMods, UNITS, UnitType } from '../config/game-config';
 import { buyUpgrade, computePlayerMods, getCoins, getLevel, isMaxed, nextCost } from '../systems/meta-upgrades';
 import { COLORS, FONT } from './theme';
 import { clayButton } from './ui-kit';
@@ -49,6 +49,14 @@ export function statsLines(group: string, mods: SideMods): string[] {
     return [
       `🏰 Máu thành ${baseHp}`,
       `🥚 Sát thương nóc ${pct(mods.roofDmg)}      ⏱️ Hồi chiêu nóc ${pct(mods.roofCd)}`,
+    ];
+  }
+  if (group === 'Đại bác') {
+    const dmg = Math.round(CANNON_DAMAGE * mods.cannonDmg);
+    const cd = ((CANNON_COOLDOWN_MS * mods.cannonCd) / 1000).toFixed(1);
+    return [
+      `💥 Sát thương ${dmg}      🎯 Tầm ${CANNON_RANGE}`,
+      `⏱️ Nhịp bắn ${cd}s      🔓 Từ màn ${CANNON_MIN_STAGE}`,
     ];
   }
   const income = (ECONOMY.incomePerSecond * mods.income).toFixed(1);

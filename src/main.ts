@@ -8,6 +8,7 @@ import { ResultScene } from './scenes/result-scene';
 import { UpgradeScene } from './scenes/upgrade-scene';
 import { HeroScene } from './scenes/hero-scene';
 import { TitanShopScene } from './scenes/titan-shop-scene';
+import { CannonShopScene } from './scenes/cannon-shop-scene';
 import { setupPwa } from './pwa/pwa-setup';
 
 const game = new Phaser.Game({
@@ -20,7 +21,7 @@ const game = new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, PreloadScene, MenuScene, BattleScene, ResultScene, UpgradeScene, HeroScene, TitanShopScene],
+  scene: [BootScene, PreloadScene, MenuScene, BattleScene, ResultScene, UpgradeScene, HeroScene, TitanShopScene, CannonShopScene],
 });
 
 // PWA: nút Cài đặt / Cập nhật + khoá xoay ngang.
