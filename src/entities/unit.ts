@@ -82,21 +82,50 @@ export class Unit {
       .text(startX, y - this.stats.size / 2 - 15, `${Math.ceil(this.hp)}`, { fontSize: '10px', color: '#ffffff', stroke: '#000000', strokeThickness: 2 })
       .setOrigin(0.5);
 
-    // Titan/Zombie: rơi từ trời — dời mọi phần lên cao rồi tween về vị trí gốc (nảy nhẹ).
+    // Titan/Zombie: rơi từ trời — dời mọi phần lên cao rồi tween về vị trí gốc.
     if (drop) {
       const DROP_HEIGHT = 260;
       const parts: Phaser.GameObjects.Components.Transform[] = [this.disc, this.icon, this.hpBar, this.hpText];
       if (this.aura) parts.push(this.aura);
-      for (const part of parts) {
-        const targetY = part.y;
-        part.y = targetY - DROP_HEIGHT;
-        scene.tweens.add({ targets: part, y: targetY, duration: 420, ease: 'Bounce.easeOut' });
-      }
-      // Zombie: có dù lúc rơi (vòm tròn đơn giản phía trên đầu), tự huỷ khi chạm đất.
+
       if (type === UnitType.Zombie) {
+        // Zombie: rơi CHẬM (không nảy). Thân KHÔNG tween trục X — combat gọi moveBy() mỗi
+        // frame (ghi đè part.x = this.x) nên tween X trên thân sẽ bị xoá ngay, vô tác dụng.
+        // Đung đưa theo gió thể hiện qua DÙ (không bị moveBy đụng tới) lắc ngang khi rơi.
+        const FALL_DURATION = 1800;
+        for (const part of parts) {
+          const targetY = part.y;
+          part.y = targetY - DROP_HEIGHT;
+          scene.tweens.add({ targets: part, y: targetY, duration: FALL_DURATION, ease: 'Sine.easeIn' });
+        }
+
+        const SWAY_AMPLITUDE = 18;
+        const SWAY_HALF_MS = 260;
+        const swayLoops = Math.max(1, Math.round(FALL_DURATION / (SWAY_HALF_MS * 2)));
         const parachuteY = y - this.stats.size / 2 - 14;
         const parachute = scene.add.circle(startX, parachuteY - DROP_HEIGHT, 16, 0xf1f5f9).setAlpha(0.95);
-        scene.tweens.add({ targets: parachute, y: parachuteY, duration: 420, ease: 'Bounce.easeOut', onComplete: () => parachute.destroy() });
+        scene.tweens.add({
+          targets: parachute,
+          y: parachuteY,
+          duration: FALL_DURATION,
+          ease: 'Sine.easeIn',
+          onComplete: () => parachute.destroy(),
+        });
+        scene.tweens.add({
+          targets: parachute,
+          x: startX + SWAY_AMPLITUDE,
+          duration: SWAY_HALF_MS,
+          yoyo: true,
+          repeat: swayLoops - 1,
+          ease: 'Sine.easeInOut',
+        });
+      } else {
+        // Titan: rơi nhanh, nảy nhẹ khi chạm đất (giữ nguyên hành vi cũ).
+        for (const part of parts) {
+          const targetY = part.y;
+          part.y = targetY - DROP_HEIGHT;
+          scene.tweens.add({ targets: part, y: targetY, duration: 420, ease: 'Bounce.easeOut' });
+        }
       }
     }
   }
