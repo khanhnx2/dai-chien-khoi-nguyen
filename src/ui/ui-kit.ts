@@ -1,6 +1,45 @@
 import Phaser from 'phaser';
 import { COLORS, FONT, darken, lighten } from './theme';
 
+/** Popup xác nhận full-màn (che nền + hộp thoại + 2 nút) cho hành động không thể hoàn tác. */
+export function confirmDialog(
+  scene: Phaser.Scene,
+  gameWidth: number,
+  gameHeight: number,
+  message: string,
+  onConfirm: () => void,
+): void {
+  const layer = scene.add.container(0, 0).setDepth(2000);
+  const overlay = scene.add
+    .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0x000000, 0.6)
+    .setInteractive(); // chặn click xuyên qua nền
+  const boxW = Math.min(420, gameWidth - 40);
+  const box = scene.add.graphics();
+  box.fillStyle(COLORS.panel, 1);
+  box.lineStyle(3, COLORS.panelBorder, 1);
+  box.fillRoundedRect(gameWidth / 2 - boxW / 2, gameHeight / 2 - 90, boxW, 180, 16);
+  box.strokeRoundedRect(gameWidth / 2 - boxW / 2, gameHeight / 2 - 90, boxW, 180, 16);
+  const text = scene.add
+    .text(gameWidth / 2, gameHeight / 2 - 50, message, { fontFamily: FONT, fontSize: '16px', color: COLORS.textLight, align: 'center', wordWrap: { width: boxW - 40 } })
+    .setOrigin(0.5, 0);
+  layer.add([overlay, box, text]);
+
+  const close = () => layer.destroy();
+  const cancelBtn = clayButton(scene, {
+    x: gameWidth / 2 - 90, y: gameHeight / 2 + 55, width: 150, height: 46,
+    label: 'Hủy', fill: COLORS.slate, fontSize: 16, onClick: close,
+  });
+  const confirmBtn = clayButton(scene, {
+    x: gameWidth / 2 + 90, y: gameHeight / 2 + 55, width: 150, height: 46,
+    label: 'Xác nhận', fill: COLORS.orange, fontSize: 16,
+    onClick: () => {
+      close();
+      onConfirm();
+    },
+  });
+  layer.add([cancelBtn.container, confirmBtn.container]);
+}
+
 export interface ClayButtonOpts {
   x: number;
   y: number;

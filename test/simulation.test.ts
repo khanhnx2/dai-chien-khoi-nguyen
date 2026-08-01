@@ -40,13 +40,13 @@ import {
   stageStatMultiplier,
   uniformSideMods,
 } from '../src/config/game-config';
-import { getUnlockedStage, unlockNextStage } from '../src/systems/progress';
+import { getUnlockedStage, resetProgress, unlockNextStage } from '../src/systems/progress';
 import { ReinforcementManager } from '../src/systems/reinforcements';
 import { REINFORCE_HP_FRAC, reinforcementCount } from '../src/config/game-config';
 import { updateTitan } from '../src/systems/titan-behavior';
 import { updateHero } from '../src/systems/hero-behavior';
 import { titanForSide, titanSpawnX, TITAN_AURA_HP_FRAC, TITAN_HERO_DMG_TAKEN_FRAC, TITANS } from '../src/config/game-config';
-import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel } from '../src/systems/meta-upgrades';
+import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel, resetMetaProgress } from '../src/systems/meta-upgrades';
 import { buyHeroUpgrade, heroUpgradeLevel, isHeroUnlocked, unlockHero, usableHero } from '../src/systems/hero-shop';
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
 
@@ -838,6 +838,24 @@ check('titan: đập tre đẩy lùi + choáng lính địch', () => {
   // Hết choáng (now 6100): lính đi lại (tiến sang trái về thành Khôi).
   updateBattle([titan, foe], bases, economy, DT, 6100);
   assert.ok(foe.x < xStunned, 'hết choáng → tiến trở lại');
+});
+
+// 46. "Chơi lại từ đầu": resetProgress + resetMetaProgress xóa sạch xu/nâng cấp/màn đã mở.
+check('reset: xóa toàn bộ tiến trình (xu, nâng cấp, màn đã mở)', () => {
+  addCoins(500);
+  const hpDef = META_UPGRADES[0];
+  assert.strictEqual(buyUpgrade(hpDef), true, 'mua được 1 cấp trước khi reset');
+  unlockNextStage(Side.Khoi, Difficulty.Normal, 1);
+  assert.ok(getCoins() > 0, 'có xu trước reset');
+  assert.ok(getLevel(hpDef.id) > 0, 'có cấp nâng cấp trước reset');
+  assert.ok(getUnlockedStage(Side.Khoi, Difficulty.Normal) > 1, 'đã mở màn >1 trước reset');
+
+  resetProgress();
+  resetMetaProgress();
+
+  assert.strictEqual(getCoins(), 0, 'hết xu sau reset');
+  assert.strictEqual(getLevel(hpDef.id), 0, 'cấp nâng cấp về 0 sau reset');
+  assert.strictEqual(getUnlockedStage(Side.Khoi, Difficulty.Normal), 1, 'màn đã mở về 1 sau reset');
 });
 
 console.log(`\n${passed} test cases passed.`);

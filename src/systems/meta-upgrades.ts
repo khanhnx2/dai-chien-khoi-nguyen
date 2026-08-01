@@ -56,6 +56,19 @@ export function addCoins(amount: number): number {
   return total;
 }
 
+/** Xóa toàn bộ xu + cấp nâng cấp — dùng cho "Chơi lại từ đầu". */
+export function resetMetaProgress(): void {
+  memCoins = 0;
+  for (const k of Object.keys(memLevels)) delete memLevels[k];
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.removeItem(COINS_KEY);
+    localStorage.removeItem(LEVELS_KEY);
+  } catch {
+    /* bỏ qua */
+  }
+}
+
 export function getLevel(id: string): number {
   return loadLevels()[id] ?? 0;
 }

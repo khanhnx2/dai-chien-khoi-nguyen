@@ -59,6 +59,18 @@ export function getLastSelection(): { side: Side; difficulty: Difficulty } | nul
   }
 }
 
+/** Xóa toàn bộ tiến trình chiến dịch (màn đã mở + lựa chọn cuối) — dùng cho "Chơi lại từ đầu". */
+export function resetProgress(): void {
+  for (const k of Object.keys(memoryFallback)) delete memoryFallback[k];
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LAST_KEY);
+  } catch {
+    /* bỏ qua */
+  }
+}
+
 /** Màn cao nhất đã mở của 1 chiến dịch (phe+mức khó); tối thiểu 1. */
 export function getUnlockedStage(side: Side, difficulty: Difficulty): number {
   const map = load();
