@@ -88,6 +88,14 @@ export class SpawnManager {
     return unit;
   }
 
+  /** Đẻ tại toạ độ X TUYỆT ĐỐI (không quanh thành) — dùng cho đổ bộ ngẫu nhiên. Bỏ qua vàng/cap/hồi chiêu như forceSpawn. */
+  forceSpawnAt(side: Side, type: UnitType, units: Unit[], absoluteX: number, drop = false): Unit {
+    const m = this.mods[side];
+    const unit = new Unit(this.scene, side, type, absoluteX, m.unitHp[type], m.unitDmg[type], drop);
+    units.push(unit);
+    return unit;
+  }
+
   /** ms còn lại tới lượt đẻ tiếp của (side,type); 0 nếu sẵn sàng. */
   cooldownLeft(side: Side, type: UnitType, now: number): number {
     return Math.max(0, (this.readyAt.get(`${side}:${type}`) ?? 0) - now);

@@ -81,6 +81,7 @@ export enum UnitType {
   Labubu = 'labubu', // HERO phe Nguyên: giống hệt Sumo, khác avatar & tiếng kêu
   Capibara = 'capibara', // TITAN phe Khôi: tank khổng lồ, rơi từ trời, hào quang chặn đạn xuyên
   Totoro = 'totoro', // TITAN phe Nguyên: giống hệt Capibara, khác avatar & phe
+  Zombie = 'zombie', // đổ bộ cứu Máy khi thành mất 25% máu (màn ≥40) — người chơi không mua được
 }
 
 export interface UnitStats {
@@ -163,6 +164,20 @@ export const UNITS: Record<UnitType, UnitStats> = {
   // tốc ×½, nhịp đánh ×2 (chậm). Tank khổng lồ, rơi từ trời, hào quang chặn đạn xuyên.
   [UnitType.Capibara]: titanUnitStats('Capibara', 0x84cc16),
   [UnitType.Totoro]: titanUnitStats('Totoro', 0x64748b),
+  // Zombie — đổ bộ cứu Máy (không mua được): dẫn xuất Bộ binh ×½ (hp/dmg/speed), hồi chiêu ×2.
+  [UnitType.Zombie]: {
+    label: 'Zombie',
+    hp: 50, // = ½ Bộ binh (100)
+    damage: 6, // = ½ Bộ binh (12)
+    speed: 31, // = ½ Bộ binh (62)
+    range: 42, // cận chiến = Bộ binh
+    cost: 20, // không dùng (không mua được) — giữ tỉ lệ ½ Bộ binh cho nhất quán
+    attackCooldownMs: 700, // = Bộ binh (không được yêu cầu riêng)
+    spawnCooldownMs: 2400, // = ×2 Bộ binh (1200)
+    reward: 9, // = ½ Bộ binh (18)
+    color: 0x4d7c0f,
+    size: 26,
+  },
 };
 
 /** Chỉ số 1 hero (dùng chung cho mọi hero — chúng giống hệt nhau, chỉ khác nhãn/màu). */
@@ -209,6 +224,7 @@ export const UNIT_EMOJI: Record<UnitType, string> = {
   [UnitType.Labubu]: '🧸',
   [UnitType.Capibara]: '🦫',
   [UnitType.Totoro]: '🌰',
+  [UnitType.Zombie]: '🧟',
 };
 
 /** Khoá texture khuôn mặt Father (đã tách nền) — Father dùng ảnh thật thay emoji. */
@@ -226,6 +242,9 @@ export const TOTORO_FACE_KEY = 'unit-totoro';
 
 /** Khoá texture cây tre (đã tách nền) — titan vung khi đánh. */
 export const BAMBOO_FACE_KEY = 'weapon-bamboo';
+
+/** Khoá texture ảnh Zombie (đã tách nền) — đổ bộ cứu Máy dùng ảnh thật thay emoji. */
+export const ZOMBIE_FACE_KEY = 'unit-zombie';
 
 /** Bảng khắc chế: kéo–búa–bao (Father không tham gia khắc chế). Bộ>Cung, Cung>Giáp, Giáp>Bộ. */
 export const COUNTER_MULTIPLIER = 1.6;
@@ -379,6 +398,20 @@ export function reinforcementCount(stage: number): number {
   return stage >= REINFORCE_MIN_STAGE ? Math.floor(stage / 10) : 0;
 }
 
+// ---- Zombie đổ bộ cứu Máy: từ màn ≥40, kích 1 LẦN/trận khi thành Máy ≤75% máu (mất 25%) ----
+// Hệ thống MỚI độc lập (systems/zombie-drop.ts), song song ReinforcementManager — không sửa nó.
+export const ZOMBIE_MIN_STAGE = 40;
+export const ZOMBIE_TRIGGER_HP_FRAC = 0.75; // kích khi hp/maxHp ≤ mốc này
+export const ZOMBIE_WAVE_DURATION_MS = 10000;
+export const ZOMBIE_DROP_INTERVAL_MS = 1000;
+export const ZOMBIE_DROP_COUNT = 10; // mỗi đợt (10 đợt × 10s = tối đa 100 zombie/trận)
+
+/** Nửa sân của phe `side`: [gần giữa màn, sát thành phe đó]. Dùng cho vị trí đổ bộ ngẫu nhiên. */
+export function zombieDropZone(side: Side): [number, number] {
+  const mid = GAME_WIDTH / 2;
+  return side === Side.Khoi ? [KHOI_BASE_X, mid] : [mid, NGUYEN_BASE_X];
+}
+
 /**
  * Hệ số máu&công theo phe: người chơi giữ base (1.0); Máy = mức_khó × màn.
  * VD Khó (×1.5) màn 50 (×1.49) ≈ ×2.24.
@@ -411,7 +444,7 @@ export interface SideMods {
   income: number;
 }
 
-const ALL_UNIT_TYPES: UnitType[] = [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Father, UnitType.Sumo, UnitType.Labubu, UnitType.Capibara, UnitType.Totoro];
+const ALL_UNIT_TYPES: UnitType[] = [UnitType.BoBinh, UnitType.CungThu, UnitType.GiapBinh, UnitType.Father, UnitType.Sumo, UnitType.Labubu, UnitType.Capibara, UnitType.Totoro, UnitType.Zombie];
 
 function unitRecord(value: number): Record<UnitType, number> {
   return {
@@ -423,6 +456,7 @@ function unitRecord(value: number): Record<UnitType, number> {
     [UnitType.Labubu]: value,
     [UnitType.Capibara]: value,
     [UnitType.Totoro]: value,
+    [UnitType.Zombie]: value,
   };
 }
 

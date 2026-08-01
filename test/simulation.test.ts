@@ -49,6 +49,15 @@ import { titanForSide, titanSpawnX, TITAN_AURA_HP_FRAC, TITAN_HERO_DMG_TAKEN_FRA
 import { addCoins, buyUpgrade, computePlayerMods, getCoins, getLevel, resetMetaProgress } from '../src/systems/meta-upgrades';
 import { Cannon } from '../src/entities/cannon';
 import { usableCannon } from '../src/systems/cannon-shop';
+import { ZombieDropManager } from '../src/systems/zombie-drop';
+import {
+  ZOMBIE_MIN_STAGE,
+  ZOMBIE_TRIGGER_HP_FRAC,
+  ZOMBIE_WAVE_DURATION_MS,
+  ZOMBIE_DROP_INTERVAL_MS,
+  ZOMBIE_DROP_COUNT,
+  zombieDropZone,
+} from '../src/config/game-config';
 import {
   CANNON_COOLDOWN_MS,
   CANNON_DAMAGE,
@@ -941,6 +950,87 @@ check('đại bác: nâng cấp Sát thương/Giảm hồi chiêu fold vào mods
   assert.ok(computePlayerMods().cannonDmg > 1, 'sát thương tăng sau nâng cấp');
   assert.strictEqual(buyUpgrade(CANNON_UPGRADES[1]), true); // Giảm hồi chiêu
   assert.ok(computePlayerMods().cannonCd < 1, 'hồi chiêu giảm sau nâng cấp');
+});
+
+// 51. Zombie: kích đúng 1 lần khi hp Máy ≤75% (mất 25%), chỉ từ màn ≥40.
+check('zombie: kích 1 lần khi hp Máy ≤75%, màn ≥40', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ZombieDropManager();
+  const aiSide = Side.Nguyen;
+
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.8;
+  assert.strictEqual(mgr.update(ZOMBIE_MIN_STAGE, aiSide, bases, spawn, units, 0), false, 'chưa đủ ngưỡng');
+  assert.strictEqual(units.length, 0);
+
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.7;
+  assert.strictEqual(mgr.update(ZOMBIE_MIN_STAGE, aiSide, bases, spawn, units, 1000), 'start', 'đủ ngưỡng → kích + đợt đầu ngay');
+  assert.strictEqual(units.length, ZOMBIE_DROP_COUNT);
+  assert.ok(units.every((u) => u.type === UnitType.Zombie && u.side === aiSide));
+});
+
+// 52. Zombie: đúng 10 đợt trong 10s (100 tổng), dừng sau khi hết cửa sổ, không kích lại.
+check('zombie: đủ 10 đợt trong 10s rồi dừng, không kích lại', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ZombieDropManager();
+  const aiSide = Side.Nguyen;
+  bases[aiSide].hp = bases[aiSide].maxHp * ZOMBIE_TRIGGER_HP_FRAC;
+
+  const start = 5000;
+  assert.strictEqual(mgr.update(ZOMBIE_MIN_STAGE, aiSide, bases, spawn, units, start), 'start');
+  for (let i = 1; i < 10; i++) {
+    const r = mgr.update(ZOMBIE_MIN_STAGE, aiSide, bases, spawn, units, start + i * ZOMBIE_DROP_INTERVAL_MS);
+    assert.strictEqual(r, 'drop', `đợt ${i + 1} phải rơi`);
+  }
+  assert.strictEqual(units.length, 10 * ZOMBIE_DROP_COUNT, 'đủ 10 đợt × 10 con = 100');
+
+  // Sau khi cửa sổ đóng (đúng waveEndAt = start + DURATION): không đẻ thêm.
+  assert.strictEqual(mgr.update(ZOMBIE_MIN_STAGE, aiSide, bases, spawn, units, start + ZOMBIE_WAVE_DURATION_MS), false);
+  assert.strictEqual(units.length, 100, 'không đẻ thêm sau khi hết cửa sổ');
+
+  // Hp tụt tiếp không kích lại.
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.05;
+  assert.strictEqual(mgr.update(ZOMBIE_MIN_STAGE, aiSide, bases, spawn, units, start + 50000), false);
+  assert.strictEqual(units.length, 100, 'không kích lại trong cùng trận');
+});
+
+// 53. Zombie: màn <40 không kích dù hp Máy rất thấp.
+check('zombie: màn <40 không kích dù hp Máy rất thấp', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ZombieDropManager();
+  const aiSide = Side.Nguyen;
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.1;
+  assert.strictEqual(mgr.update(ZOMBIE_MIN_STAGE - 1, aiSide, bases, spawn, units, 0), false);
+  assert.strictEqual(units.length, 0);
+});
+
+// 54. Zombie: vị trí X luôn nằm trong nửa sân Máy.
+check('zombie: vị trí X trong nửa sân Máy', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ZombieDropManager();
+  const aiSide = Side.Khoi; // thử phe còn lại để chắc zombieDropZone đúng cả 2 hướng
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.7;
+  mgr.update(ZOMBIE_MIN_STAGE, aiSide, bases, spawn, units, 0);
+  const [lo, hi] = zombieDropZone(aiSide);
+  assert.ok(units.length > 0);
+  assert.ok(units.every((u) => u.x >= lo && u.x <= hi), 'mọi zombie nằm trong nửa sân Máy');
+});
+
+// 55. Zombie: stats đúng tỉ lệ ½ Bộ binh (hp/dmg/speed) + hồi chiêu ×2.
+check('zombie: stats = ½ Bộ binh, hồi chiêu ×2', () => {
+  const z = UNITS[UnitType.Zombie];
+  const b = UNITS[UnitType.BoBinh];
+  assert.strictEqual(z.hp, b.hp / 2);
+  assert.strictEqual(z.damage, b.damage / 2);
+  assert.strictEqual(z.speed, b.speed / 2);
+  assert.strictEqual(z.spawnCooldownMs, b.spawnCooldownMs * 2);
 });
 
 console.log(`\n${passed} test cases passed.`);

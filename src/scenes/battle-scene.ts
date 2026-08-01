@@ -31,6 +31,7 @@ import { Upgrades } from '../systems/upgrades';
 import { SpecialAbility } from '../systems/special-ability';
 import { BasicAi } from '../ai/basic-ai';
 import { ReinforcementManager } from '../systems/reinforcements';
+import { ZombieDropManager } from '../systems/zombie-drop';
 import { BattleHud } from '../ui/battle-hud';
 import { UpgradePanel } from '../ui/upgrade-panel';
 import { sound } from '../audio/sound-manager';
@@ -59,6 +60,7 @@ export class BattleScene extends Phaser.Scene {
   private special!: SpecialAbility;
   private ai!: BasicAi;
   private reinforcements!: ReinforcementManager;
+  private zombieDrops!: ZombieDropManager;
   private cannon?: Cannon;
   private hud!: BattleHud;
   private upgradePanel!: UpgradePanel;
@@ -115,6 +117,7 @@ export class BattleScene extends Phaser.Scene {
     this.special = new SpecialAbility({ [Side.Khoi]: mods[Side.Khoi].roofDmg, [Side.Nguyen]: mods[Side.Nguyen].roofDmg });
     this.ai = new BasicAi(this.aiSide, this.difficulty);
     this.reinforcements = new ReinforcementManager();
+    this.zombieDrops = new ZombieDropManager();
     this.hud = new BattleHud(this, this.playerSide, mods, {
       onSpawn: (type) => this.onPlayerSpawn(type),
       onSpawnTitan: (type) => this.onPlayerSpawnTitan(type),
@@ -171,7 +174,15 @@ export class BattleScene extends Phaser.Scene {
       this.reinforcements.update(this.stage, this.aiSide, this.bases, this.spawn, this.units)
     ) {
       sound.play((heroForSide(this.aiSide)?.sfx as Sfx) ?? 'spawn');
-      this.showReinforceToast();
+      this.showToast('⚔️ QUÂN TIẾP VIỆN!', '#ef4444');
+    }
+    // Zombie đổ bộ cứu Máy (hệ thống độc lập, 1 lần/trận) — chỉ toast lúc kích hoạt, không lặp mỗi đợt rơi.
+    if (!this.bases[this.aiSide].isDead()) {
+      const zResult = this.zombieDrops.update(this.stage, this.aiSide, this.bases, this.spawn, this.units, time);
+      if (zResult === 'start') {
+        sound.play('spawn');
+        this.showToast('🧟 ZOMBIE ĐỔ BỘ!', '#84cc16');
+      }
     }
     this.roofs[Side.Khoi].update(time, this.units, this.projectiles, this.upgrades);
     this.roofs[Side.Nguyen].update(time, this.units, this.projectiles, this.upgrades);
@@ -184,12 +195,12 @@ export class BattleScene extends Phaser.Scene {
     else if (this.bases[this.playerSide].isDead()) this.endGame(false);
   }
 
-  /** Toast giữa màn báo Máy gọi quân tiếp viện (tự mờ dần rồi biến mất). */
-  private showReinforceToast(): void {
+  /** Toast giữa màn (tiếp viện/zombie...) — tự mờ dần rồi biến mất. */
+  private showToast(text: string, color: string): void {
     const toast = this.add
-      .text(GAME_WIDTH / 2, LANE_Y - 140, '⚔️ QUÂN TIẾP VIỆN!', {
+      .text(GAME_WIDTH / 2, LANE_Y - 140, text, {
         fontSize: '30px',
-        color: '#ef4444',
+        color,
         fontStyle: 'bold',
         stroke: '#000000',
         strokeThickness: 4,

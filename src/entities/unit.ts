@@ -8,6 +8,7 @@ import {
   UNITS,
   UNIT_EMOJI,
   UnitType,
+  ZOMBIE_FACE_KEY,
   baseXOf,
   directionOf,
   heroDefByType,
@@ -63,9 +64,13 @@ export class Unit {
       this.aura = scene.add.circle(startX, y, this.stats.size / 2 + 8).setStrokeStyle(3, 0xfde047).setAlpha(0.9);
       this.auraActive = true;
     }
-    // Father & các hero (Sumo/Labubu) & titan dùng ảnh thật; các lính khác dùng emoji.
+    // Father & các hero (Sumo/Labubu) & titan & zombie dùng ảnh thật; các lính khác dùng emoji.
     const faceKey =
-      type === UnitType.Father ? FATHER_FACE_KEY : (heroDefByType(type)?.faceKey ?? titanDefByType(type)?.faceKey ?? null);
+      type === UnitType.Father
+        ? FATHER_FACE_KEY
+        : type === UnitType.Zombie
+          ? ZOMBIE_FACE_KEY
+          : (heroDefByType(type)?.faceKey ?? titanDefByType(type)?.faceKey ?? null);
     this.icon = faceKey
       ? scene.add.image(startX, y, faceKey).setDisplaySize(this.stats.size, this.stats.size)
       : scene.add.text(startX, y, UNIT_EMOJI[type], { fontSize: `${this.stats.size - 6}px` }).setOrigin(0.5);
@@ -77,7 +82,7 @@ export class Unit {
       .text(startX, y - this.stats.size / 2 - 15, `${Math.ceil(this.hp)}`, { fontSize: '10px', color: '#ffffff', stroke: '#000000', strokeThickness: 2 })
       .setOrigin(0.5);
 
-    // Titan: rơi từ trời — dời mọi phần lên cao rồi tween về vị trí gốc (nảy nhẹ).
+    // Titan/Zombie: rơi từ trời — dời mọi phần lên cao rồi tween về vị trí gốc (nảy nhẹ).
     if (drop) {
       const DROP_HEIGHT = 260;
       const parts: Phaser.GameObjects.Components.Transform[] = [this.disc, this.icon, this.hpBar, this.hpText];
@@ -86,6 +91,12 @@ export class Unit {
         const targetY = part.y;
         part.y = targetY - DROP_HEIGHT;
         scene.tweens.add({ targets: part, y: targetY, duration: 420, ease: 'Bounce.easeOut' });
+      }
+      // Zombie: có dù lúc rơi (vòm tròn đơn giản phía trên đầu), tự huỷ khi chạm đất.
+      if (type === UnitType.Zombie) {
+        const parachuteY = y - this.stats.size / 2 - 14;
+        const parachute = scene.add.circle(startX, parachuteY - DROP_HEIGHT, 16, 0xf1f5f9).setAlpha(0.95);
+        scene.tweens.add({ targets: parachute, y: parachuteY, duration: 420, ease: 'Bounce.easeOut', onComplete: () => parachute.destroy() });
       }
     }
   }
