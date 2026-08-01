@@ -392,6 +392,7 @@ export function stageStatMultiplier(stage: number): number {
 // ---- Quân tiếp viện cho Máy: từ màn ≥30, kích 1 lần khi thành Máy ≤50% máu ----
 export const REINFORCE_MIN_STAGE = 30;
 export const REINFORCE_TITAN_MIN_STAGE = 40; // từ màn ≥40, đợt tiếp viện kèm 1 Titan phe Máy
+export const REINFORCE_ZOMBIE_MIN_STAGE = 50; // từ màn ≥50, đợt tiếp viện kèm Zombie (số lượng cũng theo reinforcementCount)
 export const REINFORCE_HP_FRAC = 0.5; // ngưỡng máu thành Máy để kích
 /** Số lính MỖI loại trong 1 đợt tiếp viện; 0 nếu màn < REINFORCE_MIN_STAGE. */
 export function reinforcementCount(stage: number): number {

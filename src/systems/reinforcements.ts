@@ -1,6 +1,7 @@
 import {
   REINFORCE_HP_FRAC,
   REINFORCE_TITAN_MIN_STAGE,
+  REINFORCE_ZOMBIE_MIN_STAGE,
   Side,
   UnitType,
   directionOf,
@@ -20,7 +21,8 @@ const STAGGER_BAND = 8;
 /**
  * Quân tiếp viện cho Máy: 1 đợt/trận, kích khi máu thành Máy LẦN ĐẦU ≤ REINFORCE_HP_FRAC
  * (chỉ từ màn ≥ REINFORCE_MIN_STAGE). Đẻ `count` mỗi loại: bộ binh, cung thủ, giáp binh,
- * và hero của phe Máy (nếu có); từ màn ≥ REINFORCE_TITAN_MIN_STAGE kèm `count` Titan — bỏ qua vàng/cap/hồi chiêu.
+ * và hero của phe Máy (nếu có); từ màn ≥ REINFORCE_TITAN_MIN_STAGE kèm `count` Titan;
+ * từ màn ≥ REINFORCE_ZOMBIE_MIN_STAGE kèm thêm `count` Zombie — bỏ qua vàng/cap/hồi chiêu.
  */
 export class ReinforcementManager {
   private sent = false;
@@ -62,6 +64,12 @@ export class ReinforcementManager {
         for (let n = 0; n < count; n++) {
           spawn.forceSpawn(aiSide, titan, units, -((i++ % STAGGER_BAND) * STAGGER_X) * dir);
         }
+      }
+    }
+    // Từ màn ≥50: kèm thêm `count` Zombie (cùng công thức, tăng dần theo màn như mọi loại khác).
+    if (stage >= REINFORCE_ZOMBIE_MIN_STAGE) {
+      for (let n = 0; n < count; n++) {
+        spawn.forceSpawn(aiSide, UnitType.Zombie, units, -((i++ % STAGGER_BAND) * STAGGER_X) * dir);
       }
     }
     return true;

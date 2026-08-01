@@ -704,6 +704,29 @@ check('tiếp viện: màn 40 kèm 4 Titan (4×5 loại = 20)', () => {
   assert.ok(units.every((u) => u.side === aiSide), 'tất cả phe Máy');
 });
 
+check('tiếp viện: màn 50 kèm thêm 5 Zombie (5×6 loại = 30)', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ReinforcementManager();
+  const aiSide = Side.Nguyen;
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.3;
+  assert.strictEqual(mgr.update(50, aiSide, bases, spawn, units), true);
+  assert.strictEqual(units.length, 30, '5 × (bộ binh, cung thủ, giáp binh, hero, titan, zombie)');
+  assert.strictEqual(units.filter((u) => u.type === UnitType.Zombie).length, 5, 'đúng 5 Zombie (=count)');
+});
+
+check('tiếp viện: màn 40 (chưa đủ 50) KHÔNG kèm Zombie', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ReinforcementManager();
+  const aiSide = Side.Nguyen;
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.3;
+  mgr.update(40, aiSide, bases, spawn, units);
+  assert.strictEqual(units.filter((u) => u.type === UnitType.Zombie).length, 0, 'màn <50 không có Zombie trong tiếp viện');
+});
+
 // 34. Màn <30: không tiếp viện dù thành Máy kiệt máu.
 check('tiếp viện: màn 20 không kích dù thành Máy ≤50%', () => {
   const bases = makeBases();
