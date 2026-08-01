@@ -1033,4 +1033,41 @@ check('zombie: stats = ½ Bộ binh, hồi chiêu ×2', () => {
   assert.strictEqual(z.spawnCooldownMs, b.spawnCooldownMs * 2);
 });
 
+// 56. Zombie "cuồng nộ": ≤50% máu → ×4 tốc độ di chuyển.
+check('zombie: ≤50% máu → tốc độ ×4', () => {
+  const bases = makeBases();
+  const economy = new Economy();
+
+  const z1 = new Unit(scene, Side.Nguyen, UnitType.Zombie, 500); // đầy máu, không địch gần → di chuyển
+  updateBattle([z1], bases, economy, DT, 1000);
+  const normalMove = Math.abs(z1.x - 500);
+
+  const z2 = new Unit(scene, Side.Nguyen, UnitType.Zombie, 500);
+  z2.hp = z2.maxHp * 0.5; // đúng ngưỡng kích hoạt
+  updateBattle([z2], bases, economy, DT, 1000);
+  const rageMove = Math.abs(z2.x - 500);
+
+  assert.ok(Math.abs(rageMove - normalMove * 4) < 1e-6, `di chuyển cuồng nộ (${rageMove}) phải = 4× bình thường (${normalMove})`);
+});
+
+// 57. Zombie "cuồng nộ": ≤50% máu → ×4 sát thương đòn đánh.
+check('zombie: ≤50% máu → sát thương ×4', () => {
+  const bases = makeBases();
+  const economy = new Economy();
+
+  const target1 = new Unit(scene, Side.Khoi, UnitType.GiapBinh, 520); // trâu, đủ máu chịu cả 2 đòn
+  const z1 = new Unit(scene, Side.Nguyen, UnitType.Zombie, 500); // cách 20 < tầm 42
+  updateBattle([z1, target1], bases, economy, DT, 10000); // now đủ lớn để qua hồi chiêu
+  const dmgNormal = target1.maxHp - target1.hp;
+
+  const target2 = new Unit(scene, Side.Khoi, UnitType.GiapBinh, 520);
+  const z2 = new Unit(scene, Side.Nguyen, UnitType.Zombie, 500);
+  z2.hp = z2.maxHp * 0.5;
+  updateBattle([z2, target2], bases, economy, DT, 10000);
+  const dmgRage = target2.maxHp - target2.hp;
+
+  assert.ok(dmgNormal > 0 && dmgRage > 0, 'cả 2 đòn phải gây sát thương');
+  assert.ok(Math.abs(dmgRage - dmgNormal * 4) < 1e-6, `sát thương cuồng nộ (${dmgRage}) phải = 4× bình thường (${dmgNormal})`);
+});
+
 console.log(`\n${passed} test cases passed.`);

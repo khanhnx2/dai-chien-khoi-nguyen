@@ -66,6 +66,11 @@ export function updateBattle(
     const attackBase = !attackUnit && baseDist <= unit.stats.range;
     const ready = now - unit.lastAttackAt >= unit.stats.attackCooldownMs;
 
+    // Zombie "cuồng nộ": ≤50% máu → ×4 tốc độ + ×4 sát thương.
+    const rage = unit.type === UnitType.Zombie && unit.hp / unit.maxHp <= 0.5 ? 4 : 1;
+    const speed = unit.stats.speed * rage;
+    const dmg = unit.attackDamage * rage;
+
     // Father: có bất kỳ mục tiêu trong tầm → bắn đạn ma thuật XUYÊN (đạn tự lo sát thương).
     if (unit.stats.piercing && projectiles) {
       if ((attackUnit || attackBase) && ready) {
@@ -77,7 +82,7 @@ export function updateBattle(
             'straight',
             unit.x,
             enemyBase.frontX,
-            unit.attackDamage,
+            dmg,
             0,
             FATHER_BOLT_SPEED,
             FATHER_BOLT_COLOR,
@@ -88,7 +93,7 @@ export function updateBattle(
         );
         sound.play('magic'); // bắn phép
       } else if (!attackUnit && !attackBase) {
-        unit.moveBy(directionOf(unit.side) * unit.stats.speed * dtSeconds);
+        unit.moveBy(directionOf(unit.side) * speed * dtSeconds);
       }
       continue;
     }
@@ -97,22 +102,22 @@ export function updateBattle(
 
     if (attackUnit && nearest) {
       if (ready) {
-        const dmg = unit.attackDamage * damageMultiplier(unit.type, nearest.target.type);
-        nearest.target.takeDamage(dmg);
+        const dmgFinal = dmg * damageMultiplier(unit.type, nearest.target.type);
+        nearest.target.takeDamage(dmgFinal);
         unit.lastAttackAt = now;
         unit.attackFx(nearest.target.x);
         attackSfx(); // chém / bắn tên
       }
     } else if (attackBase) {
       if (ready) {
-        enemyBase.takeDamage(unit.attackDamage);
+        enemyBase.takeDamage(dmg);
         unit.lastAttackAt = now;
         unit.attackFx(enemyBase.frontX);
         attackSfx();
       }
     } else {
       // Ngoài tầm: tiến về phía thành địch.
-      unit.moveBy(directionOf(unit.side) * unit.stats.speed * dtSeconds);
+      unit.moveBy(directionOf(unit.side) * speed * dtSeconds);
     }
   }
 
