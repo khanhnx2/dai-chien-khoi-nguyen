@@ -37,6 +37,16 @@ export class Unit {
   auraActive = false;
   /** Thời điểm (ms) hết choáng — trong lúc choáng, unit bỏ lượt (không đi/đánh). */
   stunnedUntil = 0;
+  /** Zombie: khiên bất tử còn hiệu lực tới thời điểm (ms) này — chặn mọi takeDamage. */
+  invincibleUntil = 0;
+  /** Cờ sống (được combat.ts cập nhật mỗi frame từ invincibleUntil) — takeDamage đọc cờ này. */
+  invincible = false;
+  /** Zombie: đã kích khiên bất tử (1 lần/trận) khi lần đầu chạm ngưỡng cuồng nộ chưa? */
+  shieldTriggered = false;
+  /** Nhiễm độc (vũng độc Zombie để lại) tới thời điểm (ms) này. */
+  poisonUntil = 0;
+  /** Sát thương độc mỗi giây khi đang nhiễm độc. */
+  poisonDps = 0;
 
   private readonly scene: Phaser.Scene;
   private readonly disc: Phaser.GameObjects.Arc;
@@ -153,6 +163,7 @@ export class Unit {
   }
 
   takeDamage(amount: number): void {
+    if (this.invincible) return; // khiên bất tử (Zombie cuồng nộ): chặn mọi đòn, kể cả đạn xuyên Father
     this.hp = Math.max(0, this.hp - amount);
     this.refreshHp();
     // Số sát thương bay lên tại vị trí trúng đòn.

@@ -70,6 +70,8 @@ import {
 } from '../src/config/game-config';
 import { buyHeroUpgrade, heroUpgradeLevel, isHeroUnlocked, unlockHero, usableHero } from '../src/systems/hero-shop';
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
+import { PoisonPuddleManager } from '../src/systems/poison-puddles';
+import { GAME_WIDTH, ZOMBIE_PUDDLE_COUNT, ZOMBIE_PUDDLE_DURATION_MS, ZOMBIE_SHIELD_MS } from '../src/config/game-config';
 
 // --- Fake Phaser scene: game object stub chainable, đủ field/method code dùng tới. ---
 function makeGO() {
@@ -1068,6 +1070,113 @@ check('zombie: ≤50% máu → sát thương ×4', () => {
 
   assert.ok(dmgNormal > 0 && dmgRage > 0, 'cả 2 đòn phải gây sát thương');
   assert.ok(Math.abs(dmgRage - dmgNormal * 4) < 1e-6, `sát thương cuồng nộ (${dmgRage}) phải = 4× bình thường (${dmgNormal})`);
+});
+
+// 58. Zombie cuồng nộ: hồi chiêu ÷2 → đánh gấp đôi số lần trong cùng khoảng thời gian.
+check('zombie: ≤50% máu → hồi chiêu ÷2 (đánh gấp đôi trong cùng thời gian)', () => {
+  const bases = makeBases();
+  const economy = new Economy();
+  const countAttacks = (zombieHpFrac: number): number => {
+    const target = new Unit(scene, Side.Khoi, UnitType.GiapBinh, 520, 100, 0); // trâu, dmgMult=0 để không đánh lại giết zombie giữa chừng
+    const z = new Unit(scene, Side.Nguyen, UnitType.Zombie, 500);
+    z.hp = z.maxHp * zombieHpFrac;
+    let now = 10000;
+    let attacks = 0;
+    for (let i = 0; i < 2000; i++) {
+      now += DT_MS;
+      const before = z.lastAttackAt;
+      updateBattle([z, target], bases, economy, DT, now);
+      if (z.lastAttackAt !== before) attacks++;
+    }
+    return attacks;
+  };
+  const normalAttacks = countAttacks(1);
+  const rageAttacks = countAttacks(0.5);
+  assert.ok(normalAttacks > 0, 'phải đánh được ít nhất 1 lần ở trạng thái bình thường');
+  const ratio = rageAttacks / normalAttacks;
+  assert.ok(
+    ratio > 1.9 && ratio < 2.1,
+    `số đòn cuồng nộ (${rageAttacks}) phải ≈ gấp đôi bình thường (${normalAttacks}), tỉ lệ=${ratio}`,
+  );
+});
+
+// 59. Zombie: khiên bất tử 1s kích 1 lần khi lần đầu hp ≤50%, chặn MỌI đòn (kể cả gọi trực tiếp như đạn Father).
+check('zombie: khiên bất tử 1s chặn mọi đòn, tự hết sau 1s', () => {
+  const bases = makeBases();
+  const economy = new Economy();
+  const z = new Unit(scene, Side.Nguyen, UnitType.Zombie, 500);
+  const farAlly = new Unit(scene, Side.Khoi, UnitType.GiapBinh, 100000); // ngoài tầm, không tương tác
+
+  z.hp = z.maxHp * 0.5; // vừa chạm ngưỡng cuồng nộ
+  let now = 10000;
+  updateBattle([z, farAlly], bases, economy, DT, now); // frame này kích khiên
+  assert.ok(z.invincible, 'phải bất tử ngay khi vừa chạm ngưỡng 50%');
+
+  const hpDuringShield = z.hp;
+  z.takeDamage(99999); // đòn cực mạnh, giả lập cả đạn xuyên Father
+  assert.strictEqual(z.hp, hpDuringShield, 'khiên phải chặn hoàn toàn sát thương trong lúc bất tử');
+
+  now += ZOMBIE_SHIELD_MS + 50; // qua khỏi 1s
+  updateBattle([z, farAlly], bases, economy, DT, now);
+  assert.ok(!z.invincible, 'khiên phải tự hết sau đúng 1s');
+  z.takeDamage(5);
+  assert.strictEqual(z.hp, hpDuringShield - 5, 'sau khi hết khiên phải ăn damage bình thường');
+});
+
+// 60. Zombie chết → nổ xác gọi callback đúng số vũng × sát thương gốc (không nhân cuồng nộ).
+check('zombie: chết → nổ xác gọi callback đúng sát thương gốc', () => {
+  const bases = makeBases();
+  const economy = new Economy();
+  const z = new Unit(scene, Side.Nguyen, UnitType.Zombie, 500);
+  z.hp = 0; // đã chết, sẽ bị dọn ở cuối updateBattle
+  let capturedDamage: number | null = null;
+  let calls = 0;
+  updateBattle([z], bases, economy, DT, 20000, undefined, undefined, (damage) => {
+    capturedDamage = damage;
+    calls++;
+  });
+  assert.strictEqual(calls, 1, 'chỉ gọi callback nổ xác đúng 1 lần khi zombie chết');
+  assert.strictEqual(capturedDamage, UNITS[UnitType.Zombie].damage, 'sát thương nổ xác = sát thương gốc của zombie');
+});
+
+// 61. Vũng độc: quân Player chạm 1 lần → nhiễm độc đủ 5s (dps đúng), quân địch không bị ảnh hưởng, chạm lại không cộng dồn.
+check('vũng độc: chạm 1 lần → nhiễm độc đúng dps, không cộng dồn, chỉ ảnh hưởng phe Player', () => {
+  const puddles = new PoisonPuddleManager(scene, Side.Khoi);
+  const now = 30000;
+  const originalRandom = Math.random;
+  try {
+    Math.random = () => 0.5; // ép mọi vũng vào cùng 1 vị trí (giữa map) để test tất định
+    puddles.spawnBurst(1, 50, GAME_WIDTH, now); // vũng A: tổng 50 dmg / 5s
+  } finally {
+    Math.random = originalRandom;
+  }
+
+  const victim = new Unit(scene, Side.Khoi, UnitType.BoBinh, GAME_WIDTH / 2); // đứng đúng giữa vũng
+  const enemy = new Unit(scene, Side.Nguyen, UnitType.BoBinh, GAME_WIDTH / 2); // cùng vị trí, phe Máy
+
+  puddles.update([victim, enemy], now);
+  assert.strictEqual(enemy.poisonUntil, 0, 'quân phe Máy không bị nhiễm độc dù đứng trong vũng');
+  assert.ok(victim.poisonUntil > now, 'quân Player phải bị nhiễm độc khi chạm vũng');
+  const expectedDps = 50 / (ZOMBIE_PUDDLE_DURATION_MS / 1000);
+  assert.ok(Math.abs(victim.poisonDps - expectedDps) < 1e-6, `dps phải = tổng sát thương / 5s (${expectedDps})`);
+
+  // Rời khỏi vùng — debuff vẫn còn hiệu lực nguyên vẹn (chạm 1 lần là đủ, không cần đứng lại).
+  victim.x = 0;
+  const poisonUntilBefore = victim.poisonUntil;
+  puddles.update([victim], now + 100);
+  assert.strictEqual(victim.poisonUntil, poisonUntilBefore, 'debuff không bị huỷ/refresh khi rời vùng hoặc chạm lại lúc đang nhiễm');
+});
+
+// 62. Vũng độc: unit đã nhiễm vẫn tiếp tục mất máu theo dps mỗi frame (độc lập vị trí), qua updateBattle thật.
+check('vũng độc: đã nhiễm thì mất máu đều theo dps mỗi frame, độc lập vị trí', () => {
+  const bases = makeBases();
+  const economy = new Economy();
+  const victim = new Unit(scene, Side.Khoi, UnitType.GiapBinh, 5000); // xa mọi lính khác, không đánh nhau
+  victim.poisonUntil = 20000 + ZOMBIE_PUDDLE_DURATION_MS;
+  victim.poisonDps = 10;
+  const hpBefore = victim.hp;
+  updateBattle([victim], bases, economy, DT, 20000 + 500);
+  assert.ok(Math.abs(hpBefore - victim.hp - 10 * DT) < 1e-6, 'lượng máu mất mỗi frame = poisonDps × dt');
 });
 
 console.log(`\n${passed} test cases passed.`);

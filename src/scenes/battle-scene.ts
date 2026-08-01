@@ -9,6 +9,7 @@ import {
   SIDE_INFO,
   UnitType,
   UpgradeType,
+  ZOMBIE_PUDDLE_COUNT,
   coinsEarned,
   enemyOf,
   heroForSide,
@@ -32,6 +33,7 @@ import { SpecialAbility } from '../systems/special-ability';
 import { BasicAi } from '../ai/basic-ai';
 import { ReinforcementManager } from '../systems/reinforcements';
 import { ZombieDropManager } from '../systems/zombie-drop';
+import { PoisonPuddleManager } from '../systems/poison-puddles';
 import { BattleHud } from '../ui/battle-hud';
 import { UpgradePanel } from '../ui/upgrade-panel';
 import { sound } from '../audio/sound-manager';
@@ -61,6 +63,7 @@ export class BattleScene extends Phaser.Scene {
   private ai!: BasicAi;
   private reinforcements!: ReinforcementManager;
   private zombieDrops!: ZombieDropManager;
+  private poisonPuddles!: PoisonPuddleManager;
   private cannon?: Cannon;
   private hud!: BattleHud;
   private upgradePanel!: UpgradePanel;
@@ -118,6 +121,7 @@ export class BattleScene extends Phaser.Scene {
     this.ai = new BasicAi(this.aiSide, this.difficulty);
     this.reinforcements = new ReinforcementManager();
     this.zombieDrops = new ZombieDropManager();
+    this.poisonPuddles = new PoisonPuddleManager(this, this.playerSide);
     this.hud = new BattleHud(this, this.playerSide, mods, {
       onSpawn: (type) => this.onPlayerSpawn(type),
       onSpawnTitan: (type) => this.onPlayerSpawnTitan(type),
@@ -166,7 +170,10 @@ export class BattleScene extends Phaser.Scene {
       bases: this.bases,
       scene: this,
     });
-    updateBattle(this.units, this.bases, this.economy, dt, time, this.projectiles, this);
+    updateBattle(this.units, this.bases, this.economy, dt, time, this.projectiles, this, (damage) =>
+      this.poisonPuddles.spawnBurst(ZOMBIE_PUDDLE_COUNT, damage, GAME_WIDTH, time),
+    );
+    this.poisonPuddles.update(this.units, time);
     // Quân tiếp viện cho Máy (sau combat để dùng máu thành mới nhất của frame này).
     // Bỏ qua nếu thành Máy vừa bị hạ trong frame này (tránh toast trên màn sắp kết thúc).
     if (
@@ -225,6 +232,7 @@ export class BattleScene extends Phaser.Scene {
     for (const p of this.projectiles) p.kill();
     this.units = [];
     this.projectiles = [];
+    this.poisonPuddles.destroyAll();
 
     // Thắng → mở màn kế của ĐÚNG chiến dịch (phe + mức khó) này.
     if (playerWon) unlockNextStage(this.playerSide, this.difficulty, this.stage);

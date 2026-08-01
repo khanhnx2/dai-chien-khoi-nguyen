@@ -1,5 +1,19 @@
 import type Phaser from 'phaser';
-import { LANE_Y, Side, TITAN_DEATH_HEAL_FRAC, UnitType, damageMultiplier, directionOf, enemyOf, heroDefByType, titanDefByType } from '../config/game-config';
+import {
+  LANE_Y,
+  Side,
+  TITAN_DEATH_HEAL_FRAC,
+  UnitType,
+  ZOMBIE_RAGE_COOLDOWN_DIV,
+  ZOMBIE_RAGE_HP_FRAC,
+  ZOMBIE_RAGE_SPEED_DMG_MULT,
+  ZOMBIE_SHIELD_MS,
+  damageMultiplier,
+  directionOf,
+  enemyOf,
+  heroDefByType,
+  titanDefByType,
+} from '../config/game-config';
 import type { Base } from '../entities/base';
 import type { Unit } from '../entities/unit';
 import { Projectile } from '../entities/projectile';
@@ -41,9 +55,24 @@ export function updateBattle(
   now: number,
   projectiles?: Projectile[],
   scene?: Phaser.Scene | null,
+  /** Zombie vừa chết trong frame này (dọn ở cuối hàm) — dùng để nổ xác thành vũng độc. */
+  onZombieDeath?: (damage: number) => void,
 ): void {
   for (const unit of units) {
     if (unit.isDead()) continue;
+
+    // Zombie cuồng nộ: lần đầu hp chạm ≤50% → kích khiên bất tử 1s (1 lần/trận, hp chỉ giảm dần).
+    if (unit.type === UnitType.Zombie) {
+      if (unit.hp / unit.maxHp <= ZOMBIE_RAGE_HP_FRAC && !unit.shieldTriggered) {
+        unit.shieldTriggered = true;
+        unit.invincibleUntil = now + ZOMBIE_SHIELD_MS;
+      }
+      unit.invincible = now < unit.invincibleUntil;
+    }
+    // Nhiễm độc (vũng độc Zombie để lại): trừ máu đều theo giây, độc lập trạng thái choáng.
+    if (now < unit.poisonUntil) unit.takeDamage(unit.poisonDps * dtSeconds);
+    if (unit.isDead()) continue; // độc vừa hạ gục unit này — bỏ lượt, tránh đánh/di chuyển sau khi đã chết
+
     if (now < unit.stunnedUntil) continue; // choáng: bỏ lượt (không đi/đánh) — vẫn bị nhắm & ăn damage
 
     // Hero (Sumo/Labubu) có máy trạng thái riêng (lao tới / rút lui hồi máu).
@@ -64,12 +93,14 @@ export function updateBattle(
     // Chọn mục tiêu gần hơn giữa lính địch và thành địch.
     const attackUnit = nearest !== null && nearest.dist <= unit.stats.range && nearest.dist <= baseDist;
     const attackBase = !attackUnit && baseDist <= unit.stats.range;
-    const ready = now - unit.lastAttackAt >= unit.stats.attackCooldownMs;
 
-    // Zombie "cuồng nộ": ≤50% máu → ×4 tốc độ + ×4 sát thương.
-    const rage = unit.type === UnitType.Zombie && unit.hp / unit.maxHp <= 0.5 ? 4 : 1;
+    // Zombie "cuồng nộ": ≤50% máu → ×4 tốc độ + ×4 sát thương + hồi chiêu ÷2.
+    const raging = unit.type === UnitType.Zombie && unit.hp / unit.maxHp <= ZOMBIE_RAGE_HP_FRAC;
+    const rage = raging ? ZOMBIE_RAGE_SPEED_DMG_MULT : 1;
     const speed = unit.stats.speed * rage;
     const dmg = unit.attackDamage * rage;
+    const cooldownMs = raging ? unit.stats.attackCooldownMs / ZOMBIE_RAGE_COOLDOWN_DIV : unit.stats.attackCooldownMs;
+    const ready = now - unit.lastAttackAt >= cooldownMs;
 
     // Father: có bất kỳ mục tiêu trong tầm → bắn đạn ma thuật XUYÊN (đạn tự lo sát thương).
     if (unit.stats.piercing && projectiles) {
@@ -133,6 +164,8 @@ export function updateBattle(
           }
         }
       }
+      // Zombie chết → nổ xác thành vũng độc (scene.ts spawn puddle qua callback).
+      if (unit.type === UnitType.Zombie) onZombieDeath?.(unit.attackDamage);
       economy.reward(enemyOf(unit.side), unit.stats.reward);
       unit.destroy();
       units.splice(i, 1);

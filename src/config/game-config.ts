@@ -412,6 +412,18 @@ export function zombieDropZone(side: Side): [number, number] {
   return side === Side.Khoi ? [KHOI_BASE_X, mid] : [mid, NGUYEN_BASE_X];
 }
 
+// ---- Zombie cuồng nộ (≤50% máu): x4 tốc độ/sát thương (combat.ts) + hồi chiêu ÷2 + khiên bất tử + nổ xác ----
+export const ZOMBIE_RAGE_HP_FRAC = 0.5;
+export const ZOMBIE_RAGE_SPEED_DMG_MULT = 4;
+export const ZOMBIE_RAGE_COOLDOWN_DIV = 2;
+/** Khiên bất tử kích 1 LẦN khi hp lần đầu chạm ngưỡng cuồng nộ — chặn MỌI đòn (kể cả đạn xuyên Father). */
+export const ZOMBIE_SHIELD_MS = 1000;
+/** Chết → nổ thành N mảnh, mỗi mảnh 1 vũng độc tại X ngẫu nhiên TOÀN bản đồ. */
+export const ZOMBIE_PUDDLE_COUNT = 3;
+export const ZOMBIE_PUDDLE_RADIUS = 40;
+export const ZOMBIE_PUDDLE_DURATION_MS = 5000;
+/** Quân Player chạm 1 lần → nhiễm độc đủ 5s (không cộng dồn/refresh nếu đang nhiễm); tổng máu mất = sát thương zombie lúc chết. */
+
 /**
  * Hệ số máu&công theo phe: người chơi giữ base (1.0); Máy = mức_khó × màn.
  * VD Khó (×1.5) màn 50 (×1.49) ≈ ×2.24.
