@@ -72,6 +72,12 @@ import { buyHeroUpgrade, heroUpgradeLevel, isHeroUnlocked, unlockHero, usableHer
 import { BasicAi, type AiContext } from '../src/ai/basic-ai';
 import { PoisonPuddleManager } from '../src/systems/poison-puddles';
 import { GAME_WIDTH, ZOMBIE_PUDDLE_COUNT, ZOMBIE_PUDDLE_DURATION_MS, ZOMBIE_SHIELD_MS } from '../src/config/game-config';
+import {
+  AI_HERO_MIN_STAGE,
+  AI_TITAN_MIN_STAGE,
+  AI_ZOMBIE_MIN_STAGE,
+  zombieWaveCount,
+} from '../src/config/game-config';
 
 // --- Fake Phaser scene: game object stub chainable, đủ field/method code dùng tới. ---
 function makeGO() {
@@ -203,9 +209,10 @@ check('spawn: trừ vàng đúng + chặn khi đang hồi chiêu', () => {
 });
 
 // Tạo AiContext đầy đủ cho test (scene=null → không cần sprite).
-function makeAiCtx(now: number, units: Unit[], bases: Record<Side, Base>): AiContext {
+function makeAiCtx(now: number, units: Unit[], bases: Record<Side, Base>, stage = 1): AiContext {
   return {
     now,
+    stage,
     units,
     projectiles: [] as Projectile[],
     economy: new Economy(),
@@ -347,7 +354,7 @@ function simulateMatch(
   const roofN = new RoofAttacker(null, Side.Nguyen, buff[Side.Nguyen]);
   const aiK = new BasicAi(Side.Khoi, Difficulty.Normal);
   const aiN = new BasicAi(Side.Nguyen, Difficulty.Normal);
-  const ctx: AiContext = { now: 0, units, projectiles, economy, spawn, upgrades, special, bases, scene: null };
+  const ctx: AiContext = { now: 0, stage: 1, units, projectiles, economy, spawn, upgrades, special, bases, scene: null };
 
   for (let i = 0; i < 60 * 60 * minutes; i++) {
     const now = i * DT_MS;
@@ -1200,6 +1207,84 @@ check('vũng độc: đã nhiễm thì mất máu đều theo dps mỗi frame, �
   const hpBefore = victim.hp;
   updateBattle([victim], bases, economy, DT, 20000 + 500);
   assert.ok(Math.abs(hpBefore - victim.hp - 10 * DT) < 1e-6, 'lượng máu mất mỗi frame = poisonDps × dt');
+});
+
+check('zombieWaveCount: base 10 đợt ở màn 40, +1 mỗi 10 màn', () => {
+  assert.strictEqual(zombieWaveCount(40), 10);
+  assert.strictEqual(zombieWaveCount(49), 10);
+  assert.strictEqual(zombieWaveCount(50), 11);
+  assert.strictEqual(zombieWaveCount(60), 12);
+  assert.strictEqual(zombieWaveCount(90), 15);
+  assert.strictEqual(zombieWaveCount(99), 15);
+});
+
+check('zombie: màn 50 có 11 đợt (110 con) thay vì 10 đợt cố định', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ZombieDropManager();
+  const aiSide = Side.Nguyen;
+  const stage = 50;
+  bases[aiSide].hp = bases[aiSide].maxHp * ZOMBIE_TRIGGER_HP_FRAC;
+  const start = 5000;
+  assert.strictEqual(mgr.update(stage, aiSide, bases, spawn, units, start), 'start');
+  for (let i = 1; i < 11; i++) {
+    assert.strictEqual(mgr.update(stage, aiSide, bases, spawn, units, start + i * ZOMBIE_DROP_INTERVAL_MS), 'drop');
+  }
+  assert.strictEqual(units.length, 11 * ZOMBIE_DROP_COUNT, '11 đợt × 10 con = 110');
+  assert.strictEqual(
+    mgr.update(stage, aiSide, bases, spawn, units, start + 20 * ZOMBIE_DROP_INTERVAL_MS),
+    false,
+    'dừng đúng sau 11 đợt, không kích thêm',
+  );
+});
+
+check('AI: từ AI_HERO_MIN_STAGE ưu tiên mua Hero phe mình nếu đủ tiền', () => {
+  const units: Unit[] = [];
+  const ctx = makeAiCtx(1000, units, makeBases(), AI_HERO_MIN_STAGE);
+  ctx.economy.reward(Side.Nguyen, 1000);
+  new BasicAi(Side.Nguyen).update(ctx);
+  assert.ok(units.some((u) => u.type === UnitType.Labubu), 'phải mua Labubu (hero phe Nguyên)');
+});
+
+check('AI: dưới AI_HERO_MIN_STAGE không mua Hero dù đủ tiền', () => {
+  const units: Unit[] = [];
+  const ctx = makeAiCtx(1000, units, makeBases(), AI_HERO_MIN_STAGE - 1);
+  ctx.economy.reward(Side.Nguyen, 1000);
+  new BasicAi(Side.Nguyen).update(ctx);
+  assert.ok(!units.some((u) => u.type === UnitType.Labubu), 'chưa đủ màn thì không được mua Hero');
+});
+
+check('AI: từ AI_TITAN_MIN_STAGE ưu tiên mua Titan phe mình nếu đủ tiền', () => {
+  const units: Unit[] = [];
+  const ctx = makeAiCtx(1000, units, makeBases(), AI_TITAN_MIN_STAGE);
+  ctx.economy.reward(Side.Nguyen, 1000);
+  new BasicAi(Side.Nguyen).update(ctx);
+  assert.ok(units.some((u) => u.type === UnitType.Totoro), 'phải mua Totoro (titan phe Nguyên)');
+});
+
+check('AI: dưới AI_TITAN_MIN_STAGE không mua Titan dù đủ tiền', () => {
+  const units: Unit[] = [];
+  const ctx = makeAiCtx(1000, units, makeBases(), AI_TITAN_MIN_STAGE - 1);
+  ctx.economy.reward(Side.Nguyen, 1000);
+  new BasicAi(Side.Nguyen).update(ctx);
+  assert.ok(!units.some((u) => u.type === UnitType.Totoro), 'chưa đủ màn thì không được mua Titan');
+});
+
+check('AI: từ AI_ZOMBIE_MIN_STAGE ưu tiên mua Zombie nếu đủ tiền', () => {
+  const units: Unit[] = [];
+  const ctx = makeAiCtx(1000, units, makeBases(), AI_ZOMBIE_MIN_STAGE);
+  ctx.economy.reward(Side.Nguyen, 1000);
+  new BasicAi(Side.Nguyen).update(ctx);
+  assert.ok(units.some((u) => u.type === UnitType.Zombie), 'phải mua Zombie');
+});
+
+check('AI: dưới AI_ZOMBIE_MIN_STAGE không mua Zombie dù đủ tiền', () => {
+  const units: Unit[] = [];
+  const ctx = makeAiCtx(1000, units, makeBases(), AI_ZOMBIE_MIN_STAGE - 1);
+  ctx.economy.reward(Side.Nguyen, 1000);
+  new BasicAi(Side.Nguyen).update(ctx);
+  assert.ok(!units.some((u) => u.type === UnitType.Zombie), 'chưa đủ màn thì không được mua Zombie');
 });
 
 console.log(`\n${passed} test cases passed.`);

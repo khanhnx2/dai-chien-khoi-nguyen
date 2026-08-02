@@ -161,6 +161,7 @@ export class BattleScene extends Phaser.Scene {
     this.economy.update(dt);
     this.ai.update({
       now: time,
+      stage: this.stage,
       units: this.units,
       projectiles: this.projectiles,
       economy: this.economy,

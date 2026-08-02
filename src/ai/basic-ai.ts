@@ -1,5 +1,8 @@
 import type Phaser from 'phaser';
 import {
+  AI_HERO_MIN_STAGE,
+  AI_TITAN_MIN_STAGE,
+  AI_ZOMBIE_MIN_STAGE,
   DIFFICULTIES,
   Difficulty,
   SPAWN_ORDER,
@@ -8,6 +11,9 @@ import {
   UPGRADE_ORDER,
   UnitType,
   enemyOf,
+  heroForSide,
+  titanDefByType,
+  titanForSide,
   unitThatBeats,
 } from '../config/game-config';
 import type { Base } from '../entities/base';
@@ -21,6 +27,7 @@ import type { Upgrades } from '../systems/upgrades';
 /** Ngữ cảnh trận cho AI ra quyết định (đọc/ghi qua các hệ thống chung). */
 export interface AiContext {
   now: number;
+  stage: number;
   units: Unit[];
   projectiles: Projectile[];
   economy: Economy;
@@ -36,6 +43,8 @@ const UPGRADE_GOLD_THRESHOLD = 160;
 /**
  * AI cầm 1 phe theo mức khó: định kỳ đẻ lính phản kèo và (tuỳ mức) mua nâng cấp.
  * KHÔNG dùng kỹ năng đặc biệt — chiêu đặc biệt chỉ dành cho người chơi.
+ * Từ các mốc màn (AI_HERO/TITAN/ZOMBIE_MIN_STAGE), AI được ưu tiên mua Hero/Titan/Zombie phe mình
+ * mỗi lượt quyết định (không qua cơ chế mở khoá bằng xu — AI không có tiến trình vĩnh viễn).
  */
 export class BasicAi {
   private readonly side: Side;
@@ -53,7 +62,36 @@ export class BasicAi {
     this.nextDecisionAt = ctx.now + cfg.decisionIntervalMs;
 
     if (cfg.buysUpgrades) this.maybeBuyUpgrade(ctx);
+    if (this.maybeBuySpecialUnit(ctx)) return; // mua được Hero/Titan/Zombie lượt này → bỏ qua đẻ lính thường
     this.maybeSpawn(ctx);
+  }
+
+  /**
+   * Từ các mốc màn: ưu tiên mua Hero/Titan/Zombie phe mình (đủ vàng + hết hồi chiêu).
+   * Thử MỌI loại đã mở (không dừng ở loại đầu tiên mua được) — mỗi loại có hồi chiêu/giá
+   * riêng nên không tranh chấp nhau (hero rẻ/nhanh mua liên tục không được chặn titan đắt/chậm).
+   * Trả true nếu mua được ít nhất 1 loại (bỏ qua đẻ lính thường lượt này).
+   */
+  private maybeBuySpecialUnit(ctx: AiContext): boolean {
+    const candidates: UnitType[] = [];
+    if (ctx.stage >= AI_HERO_MIN_STAGE) {
+      const hero = heroForSide(this.side)?.unitType;
+      if (hero) candidates.push(hero);
+    }
+    if (ctx.stage >= AI_TITAN_MIN_STAGE) {
+      const titan = titanForSide(this.side)?.unitType;
+      if (titan) candidates.push(titan);
+    }
+    if (ctx.stage >= AI_ZOMBIE_MIN_STAGE) candidates.push(UnitType.Zombie);
+
+    let boughtAny = false;
+    for (const type of candidates) {
+      const result = titanDefByType(type)
+        ? ctx.spawn.trySpawnTitan(this.side, type, ctx.economy, ctx.units, ctx.now)
+        : ctx.spawn.trySpawn(this.side, type, ctx.economy, ctx.units, ctx.now);
+      if ('unit' in result) boughtAny = true;
+    }
+    return boughtAny;
   }
 
   private maybeBuyUpgrade(ctx: AiContext): void {

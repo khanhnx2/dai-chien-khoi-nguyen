@@ -403,9 +403,16 @@ export function reinforcementCount(stage: number): number {
 // Hệ thống MỚI độc lập (systems/zombie-drop.ts), song song ReinforcementManager — không sửa nó.
 export const ZOMBIE_MIN_STAGE = 40;
 export const ZOMBIE_TRIGGER_HP_FRAC = 0.75; // kích khi hp/maxHp ≤ mốc này
-export const ZOMBIE_WAVE_DURATION_MS = 10000;
+export const ZOMBIE_WAVE_DURATION_MS = 10000; // base: 10s @ 1 đợt/s = 10 đợt ở màn ZOMBIE_MIN_STAGE
 export const ZOMBIE_DROP_INTERVAL_MS = 1000;
-export const ZOMBIE_DROP_COUNT = 10; // mỗi đợt (10 đợt × 10s = tối đa 100 zombie/trận)
+export const ZOMBIE_DROP_COUNT = 10; // mỗi đợt
+
+/** Tổng số đợt trong 1 lần kích: base (10) + 1 đợt mỗi 10 màn kể từ ZOMBIE_MIN_STAGE. */
+export function zombieWaveCount(stage: number): number {
+  const base = ZOMBIE_WAVE_DURATION_MS / ZOMBIE_DROP_INTERVAL_MS;
+  const extra = Math.max(0, Math.floor((stage - ZOMBIE_MIN_STAGE) / 10));
+  return base + extra;
+}
 
 /** Nửa sân của phe `side`: [gần giữa màn, sát thành phe đó]. Dùng cho vị trí đổ bộ ngẫu nhiên. */
 export function zombieDropZone(side: Side): [number, number] {
@@ -690,6 +697,12 @@ export function titanDefByType(type: UnitType): TitanDef | undefined {
 }
 /** Gộp mọi nâng cấp titan (để computePlayerMods fold 1 lượt). */
 export const ALL_TITAN_UPGRADES: MetaUpgradeDef[] = TITANS.flatMap((t) => t.upgrades);
+
+// ---- Máy (AI) "mua" Hero/Titan/Zombie từ các mốc màn — không qua cơ chế mở khoá bằng xu ----
+// (AI không có xu/tiến trình vĩnh viễn — chỉ cần đủ màn + đủ vàng + hết hồi chiêu, xem basic-ai.ts).
+export const AI_HERO_MIN_STAGE = 60;
+export const AI_TITAN_MIN_STAGE = 70;
+export const AI_ZOMBIE_MIN_STAGE = 80;
 
 // ============================================================================
 // ĐẠI BÁC — thực thể DUY NHẤT (không phải cặp theo phe như hero/titan): dùng

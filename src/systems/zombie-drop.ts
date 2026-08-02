@@ -4,8 +4,8 @@ import {
   ZOMBIE_DROP_INTERVAL_MS,
   ZOMBIE_MIN_STAGE,
   ZOMBIE_TRIGGER_HP_FRAC,
-  ZOMBIE_WAVE_DURATION_MS,
   zombieDropZone,
+  zombieWaveCount,
   type Side,
 } from '../config/game-config';
 import type { Base } from '../entities/base';
@@ -14,13 +14,13 @@ import type { SpawnManager } from './spawn';
 
 /**
  * Zombie đổ bộ cứu Máy: 1 LẦN/trận, kích khi máu thành Máy LẦN ĐẦU ≤ ZOMBIE_TRIGGER_HP_FRAC
- * (mất 25%, chỉ từ màn ≥ ZOMBIE_MIN_STAGE). Sau khi kích, trong ZOMBIE_WAVE_DURATION_MS,
- * mỗi ZOMBIE_DROP_INTERVAL_MS đẻ ZOMBIE_DROP_COUNT zombie tại X ngẫu nhiên nửa sân Máy
- * (dù rơi). Hệ thống độc lập, KHÔNG sửa ReinforcementManager.
+ * (mất 25%, chỉ từ màn ≥ ZOMBIE_MIN_STAGE). Sau khi kích, mỗi ZOMBIE_DROP_INTERVAL_MS đẻ
+ * ZOMBIE_DROP_COUNT zombie tại X ngẫu nhiên nửa sân Máy (dù rơi), đủ `zombieWaveCount(stage)`
+ * đợt (base 10, +1 mỗi 10 màn) rồi dừng. Hệ thống độc lập, KHÔNG sửa ReinforcementManager.
  */
 export class ZombieDropManager {
   private triggered = false;
-  private waveEndAt = 0;
+  private wavesLeft = 0;
   private nextDropAt = 0;
 
   /** Trả 'start' đúng frame kích hoạt (toast), 'drop' mỗi đợt rơi tiếp theo, false nếu không có gì. */
@@ -39,13 +39,14 @@ export class ZombieDropManager {
       const base = bases[aiSide];
       if (base.hp / base.maxHp > ZOMBIE_TRIGGER_HP_FRAC) return false;
       this.triggered = true;
-      this.waveEndAt = now + ZOMBIE_WAVE_DURATION_MS;
+      this.wavesLeft = zombieWaveCount(stage);
       this.nextDropAt = now; // đẻ đợt đầu ngay
       justTriggered = true;
     }
-    if (now >= this.waveEndAt) return false;
+    if (this.wavesLeft <= 0) return false;
     if (now < this.nextDropAt) return false;
 
+    this.wavesLeft--;
     this.nextDropAt += ZOMBIE_DROP_INTERVAL_MS;
     const [lo, hi] = zombieDropZone(aiSide);
     for (let i = 0; i < ZOMBIE_DROP_COUNT; i++) {
