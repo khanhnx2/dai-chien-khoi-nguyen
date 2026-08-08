@@ -42,7 +42,7 @@ import {
 } from '../src/config/game-config';
 import { getUnlockedStage, resetProgress, unlockNextStage } from '../src/systems/progress';
 import { ReinforcementManager } from '../src/systems/reinforcements';
-import { REINFORCE_HP_FRAC, reinforcementCount } from '../src/config/game-config';
+import { REINFORCE_HP_FRAC, REINFORCE_ZOMBIE_MODE_MULT, reinforcementCount } from '../src/config/game-config';
 import { updateTitan } from '../src/systems/titan-behavior';
 import { updateHero } from '../src/systems/hero-behavior';
 import { titanForSide, titanSpawnX, TITAN_AURA_HP_FRAC, TITAN_HERO_DMG_TAKEN_FRAC, TITANS } from '../src/config/game-config';
@@ -395,6 +395,27 @@ check('AI: đẻ đa dạng loại lính (không chỉ Bộ binh)', () => {
   assert.ok(types.size >= 2, `AI phải đẻ >=2 loại lính, thực tế ${types.size}`);
 });
 
+// 14b. Chế độ Zombie: AI chỉ đẻ Zombie, không Hero/Titan kể cả màn cao (90).
+check('AI Zombie: chỉ đẻ Zombie, không Hero/Titan kể cả màn cao', () => {
+  const ctx = makeAiCtx(0, [], makeBases(), 90); // màn 90 — trên mọi mốc AI_HERO/TITAN/ZOMBIE_MIN_STAGE
+  ctx.economy.reward(Side.Nguyen, 100000); // dư tiền → không kẹt vàng
+  const ai = new BasicAi(Side.Nguyen, Difficulty.Zombie);
+  for (let i = 0; i < 60 * 60; i++) {
+    ctx.now = i * DT_MS;
+    ai.update(ctx);
+  }
+  const aiUnits = ctx.units.filter((u) => u.side === Side.Nguyen);
+  assert.ok(aiUnits.length > 0, 'AI Zombie phải đẻ ít nhất 1 quân');
+  assert.ok(
+    aiUnits.every((u) => u.type === UnitType.Zombie),
+    `chỉ đẻ Zombie, thực tế ${aiUnits.map((u) => u.type).join(',')}`,
+  );
+  const specials = aiUnits.filter(
+    (u) => u.type === UnitType.Sumo || u.type === UnitType.Labubu || u.type === UnitType.Capibara || u.type === UnitType.Totoro,
+  );
+  assert.strictEqual(specials.length, 0, 'không mua Hero/Titan kể cả màn cao');
+});
+
 // 15. Hệ số mức khó: Máy được +máu&công theo mức, người chơi giữ base.
 check('mức khó: Máy +20% (Thường) / +50% (Khó) máu & công, người chơi base', () => {
   assert.strictEqual(DIFFICULTIES[Difficulty.Easy].statMultiplier, 1.0);
@@ -416,6 +437,23 @@ check('mức khó: Máy +20% (Thường) / +50% (Khó) máu & công, người ch
   const baseWall = new Base(scene, Side.Nguyen, 1);
   const buffedWall = new Base(scene, Side.Nguyen, 1.5);
   assert.strictEqual(buffedWall.maxHp, baseWall.maxHp * 1.5);
+});
+
+// 15b. Chế độ Zombie: cấu hình giống hệt Thường (850ms/×1.2/mua nâng cấp) + flag spawnOnlyZombie.
+check('mức khó Zombie: giống hệt Thường (850ms/×1.2/mua nâng cấp) + spawnOnlyZombie', () => {
+  const z = DIFFICULTIES[Difficulty.Zombie];
+  assert.strictEqual(z.decisionIntervalMs, 850, 'nhịp quyết định = Thường');
+  assert.strictEqual(z.buysUpgrades, true, 'mua nâng cấp = Thường');
+  assert.strictEqual(z.statMultiplier, 1.2, 'hệ số máu&công = Thường');
+  assert.strictEqual(z.spawnOnlyZombie, true, 'flag chỉ đẻ Zombie bật');
+
+  // statMultipliersFor: Máy ×1.2 (như Thường), người chơi base.
+  const mods = statMultipliersFor(Side.Khoi, Difficulty.Zombie);
+  assert.strictEqual(mods[Side.Khoi], 1);
+  assert.strictEqual(mods[Side.Nguyen], 1.2);
+
+  // Hằng số tiếp viện Zombie (phase 3 dùng).
+  assert.strictEqual(REINFORCE_ZOMBIE_MODE_MULT, 4);
 });
 
 // 16. Father: đạn ma thuật XUYÊN trúng NHIỀU lính địch (không bị cản).
@@ -732,6 +770,35 @@ check('tiếp viện: màn 40 (chưa đủ 50) KHÔNG kèm Zombie', () => {
   bases[aiSide].hp = bases[aiSide].maxHp * 0.3;
   mgr.update(40, aiSide, bases, spawn, units);
   assert.strictEqual(units.filter((u) => u.type === UnitType.Zombie).length, 0, 'màn <50 không có Zombie trong tiếp viện');
+});
+
+// 34c. Chế độ Zombie: tiếp viện chỉ đẻ Zombie (count × REINFORCE_ZOMBIE_MODE_MULT), không Titan.
+check('tiếp viện Zombie: màn 30 chỉ đẻ count×4 Zombie', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ReinforcementManager(true); // chế độ Zombie
+  const aiSide = Side.Nguyen;
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.3;
+  assert.strictEqual(mgr.update(30, aiSide, bases, spawn, units), true);
+  const expected = reinforcementCount(30) * REINFORCE_ZOMBIE_MODE_MULT; // 3×4 = 12
+  assert.strictEqual(units.length, expected, `đúng ${expected} Zombie`);
+  assert.ok(units.every((u) => u.type === UnitType.Zombie), 'toàn Zombie, không lính thường/hero');
+  assert.ok(units.every((u) => u.side === aiSide), 'tất cả phe Máy');
+});
+
+check('tiếp viện Zombie: màn 50 toàn Zombie, không Titan', () => {
+  const bases = makeBases();
+  const spawn = new SpawnManager(scene);
+  const units: Unit[] = [];
+  const mgr = new ReinforcementManager(true);
+  const aiSide = Side.Nguyen;
+  bases[aiSide].hp = bases[aiSide].maxHp * 0.3;
+  assert.strictEqual(mgr.update(50, aiSide, bases, spawn, units), true);
+  const expected = reinforcementCount(50) * REINFORCE_ZOMBIE_MODE_MULT; // 5×4 = 20
+  assert.strictEqual(units.length, expected, `đúng ${expected} Zombie`);
+  assert.ok(units.every((u) => u.type === UnitType.Zombie), 'toàn Zombie');
+  assert.strictEqual(units.filter((u) => u.type === UnitType.Totoro).length, 0, 'không Titan phe Máy');
 });
 
 // 34. Màn <30: không tiếp viện dù thành Máy kiệt máu.

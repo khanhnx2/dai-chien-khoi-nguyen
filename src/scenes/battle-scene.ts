@@ -119,7 +119,7 @@ export class BattleScene extends Phaser.Scene {
     this.upgrades = new Upgrades();
     this.special = new SpecialAbility({ [Side.Khoi]: mods[Side.Khoi].roofDmg, [Side.Nguyen]: mods[Side.Nguyen].roofDmg });
     this.ai = new BasicAi(this.aiSide, this.difficulty);
-    this.reinforcements = new ReinforcementManager();
+    this.reinforcements = new ReinforcementManager(this.difficulty === Difficulty.Zombie);
     this.zombieDrops = new ZombieDropManager();
     this.poisonPuddles = new PoisonPuddleManager(this, this.playerSide);
     this.hud = new BattleHud(this, this.playerSide, mods, {

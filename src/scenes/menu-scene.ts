@@ -125,10 +125,10 @@ export class MenuScene extends Phaser.Scene {
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.22, 'MỨC KHÓ', { fontFamily: FONT, fontSize: '16px', color: COLORS.textMuted })
       .setOrigin(0.5);
-    const diffs = [Difficulty.Easy, Difficulty.Normal, Difficulty.Hard];
+    const diffs = [Difficulty.Easy, Difficulty.Normal, Difficulty.Hard, Difficulty.Zombie];
     diffs.forEach((d, i) => {
       const btn = clayButton(this, {
-        x: GAME_WIDTH * (0.33 + i * 0.17),
+        x: GAME_WIDTH * ((i + 0.5) / 4), // 4 nút đều: 0.125 / 0.375 / 0.625 / 0.875
         y: GAME_HEIGHT * 0.31,
         width: 110,
         height: 48,

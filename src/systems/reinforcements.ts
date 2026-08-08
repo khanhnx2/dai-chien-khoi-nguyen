@@ -1,6 +1,7 @@
 import {
   REINFORCE_HP_FRAC,
   REINFORCE_TITAN_MIN_STAGE,
+  REINFORCE_ZOMBIE_MODE_MULT,
   REINFORCE_ZOMBIE_MIN_STAGE,
   Side,
   UnitType,
@@ -27,6 +28,12 @@ const STAGGER_BAND = 8;
 export class ReinforcementManager {
   private sent = false;
 
+  /**
+   * `spawnOnlyZombie` (chế độ Zombie): đợt tiếp viện chỉ đẻ `count × REINFORCE_ZOMBIE_MODE_MULT`
+   * Zombie — bỏ lính thường/hero/titan và bỏ cổng màn của Zombie (Zombie là quân nền).
+   */
+  constructor(private readonly spawnOnlyZombie = false) {}
+
   /** Trả true đúng frame kích (để scene bắn toast/SFX). */
   update(
     stage: number,
@@ -42,6 +49,17 @@ export class ReinforcementManager {
     if (base.hp / base.maxHp > REINFORCE_HP_FRAC) return false;
 
     this.sent = true;
+    const dir = directionOf(aiSide);
+    let i = 0;
+
+    if (this.spawnOnlyZombie) {
+      const zombieCount = count * REINFORCE_ZOMBIE_MODE_MULT;
+      for (let n = 0; n < zombieCount; n++) {
+        spawn.forceSpawn(aiSide, UnitType.Zombie, units, -((i++ % STAGGER_BAND) * STAGGER_X) * dir);
+      }
+      return true;
+    }
+
     const hero = heroForSide(aiSide)?.unitType;
     const types: UnitType[] = [
       UnitType.BoBinh,
@@ -49,8 +67,6 @@ export class ReinforcementManager {
       UnitType.GiapBinh,
       ...(hero ? [hero] : []),
     ];
-    const dir = directionOf(aiSide);
-    let i = 0;
     for (const type of types) {
       // Lệch NGƯỢC chiều tiến (−dir) → đẻ lùi về phía thành Máy; modulo giữ cụm gọn.
       for (let n = 0; n < count; n++) {

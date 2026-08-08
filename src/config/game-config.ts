@@ -362,6 +362,7 @@ export enum Difficulty {
   Easy = 'easy',
   Normal = 'normal',
   Hard = 'hard',
+  Zombie = 'zombie',
 }
 
 export interface DifficultyConfig {
@@ -370,13 +371,17 @@ export interface DifficultyConfig {
   buysUpgrades: boolean;
   /** Hệ số nhân MÁU & CÔNG áp cho phe Máy (lính + thành + nóc thành). Base = 1.0. */
   statMultiplier: number;
+  /** Chế độ đặc biệt: AI chỉ đẻ Zombie (bỏ Hero/Titan + phản kèo) — Dễ/Thường/Khó không có. */
+  spawnOnlyZombie?: boolean;
 }
 
 // Lưu ý: kỹ năng đặc biệt chỉ dành cho NGƯỜI CHƠI — AI không dùng ở bất kỳ mức nào.
+// Zombie = giống hệt Thường (nhịp/mua nâng cấp/hệ số) nhưng AI chỉ ra 1 loại quân: Zombie.
 export const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
   [Difficulty.Easy]: { label: 'Dễ', decisionIntervalMs: 1500, buysUpgrades: false, statMultiplier: 1.0 },
   [Difficulty.Normal]: { label: 'Thường', decisionIntervalMs: 850, buysUpgrades: true, statMultiplier: 1.2 },
   [Difficulty.Hard]: { label: 'Khó', decisionIntervalMs: 500, buysUpgrades: true, statMultiplier: 1.5 },
+  [Difficulty.Zombie]: { label: 'Zombie', decisionIntervalMs: 850, buysUpgrades: true, statMultiplier: 1.2, spawnOnlyZombie: true },
 };
 
 // ---- Chiến dịch 99 màn: mỗi màn Máy +10% máu & công (nhân chồng lên mức khó) ----
@@ -391,6 +396,8 @@ export function stageStatMultiplier(stage: number): number {
 
 // ---- Quân tiếp viện cho Máy: từ màn ≥30, kích 1 lần khi thành Máy ≤50% máu ----
 export const REINFORCE_MIN_STAGE = 30;
+/** Chế độ Zombie: số Zombie mỗi đợt tiếp viện = reinforcementCount × hằng này (≈ khối lượng 3 lính + hero của Thường). */
+export const REINFORCE_ZOMBIE_MODE_MULT = 4;
 export const REINFORCE_TITAN_MIN_STAGE = 40; // từ màn ≥40, đợt tiếp viện kèm 1 Titan phe Máy
 export const REINFORCE_ZOMBIE_MIN_STAGE = 50; // từ màn ≥50, đợt tiếp viện kèm Zombie (số lượng cũng theo reinforcementCount)
 export const REINFORCE_HP_FRAC = 0.5; // ngưỡng máu thành Máy để kích

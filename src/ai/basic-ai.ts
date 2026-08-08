@@ -50,10 +50,16 @@ export class BasicAi {
   private readonly side: Side;
   private readonly difficulty: Difficulty;
   private nextDecisionAt = 0;
+  /** Chế độ Zombie: AI chỉ đẻ Zombie, không mua Hero/Titan, không phản kèo. */
+  private readonly spawnOnlyZombie: boolean;
+  /** Các loại quân AI dùng để đẻ (chỉ Zombie khi spawnOnlyZombie). */
+  private readonly spawnPool: UnitType[];
 
   constructor(side: Side, difficulty: Difficulty = Difficulty.Normal) {
     this.side = side;
     this.difficulty = difficulty;
+    this.spawnOnlyZombie = DIFFICULTIES[difficulty].spawnOnlyZombie ?? false;
+    this.spawnPool = this.spawnOnlyZombie ? [UnitType.Zombie] : SPAWN_ORDER;
   }
 
   update(ctx: AiContext): void {
@@ -62,7 +68,8 @@ export class BasicAi {
     this.nextDecisionAt = ctx.now + cfg.decisionIntervalMs;
 
     if (cfg.buysUpgrades) this.maybeBuyUpgrade(ctx);
-    if (this.maybeBuySpecialUnit(ctx)) return; // mua được Hero/Titan/Zombie lượt này → bỏ qua đẻ lính thường
+    // Chế độ Zombie: bỏ nhánh mua Hero/Titan — chỉ đẻ Zombie qua kinh tế.
+    if (!this.spawnOnlyZombie && this.maybeBuySpecialUnit(ctx)) return;
     this.maybeSpawn(ctx);
   }
 
@@ -106,7 +113,7 @@ export class BasicAi {
   }
 
   private maybeSpawn(ctx: AiContext): void {
-    const desired = this.pickUnit(ctx.units);
+    const desired = this.spawnOnlyZombie ? UnitType.Zombie : this.pickUnit(ctx.units);
     if (ctx.economy.canAfford(this.side, UNITS[desired].cost)) {
       ctx.spawn.trySpawn(this.side, desired, ctx.economy, ctx.units, ctx.now);
       return;
@@ -120,7 +127,7 @@ export class BasicAi {
   /** Loại lính đắt nhất mà hiện đủ vàng mua, hoặc null nếu không mua nổi loại nào. */
   private bestAffordable(ctx: AiContext): UnitType | null {
     let best: UnitType | null = null;
-    for (const type of SPAWN_ORDER) {
+    for (const type of this.spawnPool) {
       if (!ctx.economy.canAfford(this.side, UNITS[type].cost)) continue;
       if (best === null || UNITS[type].cost > UNITS[best].cost) best = type;
     }
@@ -128,7 +135,7 @@ export class BasicAi {
   }
 
   private randomType(): UnitType {
-    return SPAWN_ORDER[Math.floor(Math.random() * SPAWN_ORDER.length)];
+    return this.spawnPool[Math.floor(Math.random() * this.spawnPool.length)];
   }
 
   /**
